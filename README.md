@@ -1,321 +1,478 @@
 # xsukax Flat-File CMS
 
-A modern, lightweight, and secure flat-file content management system built with PHP. xsukax eliminates database complexity while delivering a professional blogging platform with a clean, intuitive interface and robust security features.
+A modern, elegant, and secure flat-file content management system designed for professional blogs and personal websites. Built with simplicity, security, and privacy as core principles.
 
-## Project Overview
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![PHP Version](https://img.shields.io/badge/PHP-%3E%3D8.0-777BB4?logo=php)](https://www.php.net/)
 
-xsukax is a database-free CMS designed for developers and content creators who value simplicity, security, and performance. The application stores all content as Markdown files in the filesystem, providing version control compatibility and eliminating database dependencies. It features a modern admin dashboard with live Markdown preview, analytics tracking, and a responsive public-facing interface that automatically adapts to light and dark themes.
+## 📋 Project Overview
 
-The system consists of two primary components:
-- **Public Interface** (`index.php`) - Renders blog posts with Markdown and Mermaid diagram support
-- **Admin Dashboard** (`admin.php`) - Provides authenticated access to post management, editing, and system settings
+**xsukax Flat-File CMS** is a lightweight, database-free content management system that stores all content as flat files on your server. This architecture eliminates the complexity and security vulnerabilities associated with traditional database-driven systems while providing a fast, reliable platform for publishing content.
 
-## Security and Privacy Benefits
-
-xsukax implements multiple layers of security to protect content and administrative access:
-
-### Authentication and Session Security
-- **Password Hashing**: Utilizes PHP's `password_hash()` with `PASSWORD_DEFAULT` algorithm (bcrypt) for secure credential storage
-- **Session Regeneration**: Implements `session_regenerate_id(true)` on successful authentication to prevent session fixation attacks
-- **Secure Session Management**: Stores authentication state in PHP sessions with proper isolation
-
-### Request Protection
-- **CSRF Token Validation**: All state-modifying POST requests require valid CSRF tokens to prevent cross-site request forgery attacks
-- **Input Sanitization**: The `sanitize_slug()` function ensures all user-supplied slugs contain only safe characters (alphanumeric, hyphens, underscores)
-- **HTTP Method Restrictions**: Administrative actions are restricted to POST requests with proper validation
-
-### File System Security
-- **Path Traversal Prevention**: The `safe_post_path()` function validates all file paths using `realpath()` to prevent directory traversal attacks
-- **Restricted File Permissions**: Password hash file receives `chmod 0600` (owner read/write only), post files receive `chmod 0664`
-- **Isolated Storage**: All post content is stored in a dedicated `Posts/` directory with controlled access
-
-### Content Security
-- **XSS Prevention**: Integrates DOMPurify for client-side HTML sanitization, preventing malicious script injection in rendered content
-- **Output Escaping**: All dynamic content uses `htmlspecialchars()` to prevent HTML injection in server-rendered pages
-- **No Database Vulnerabilities**: Elimination of database layer removes SQL injection attack vectors entirely
-
-### Privacy Advantages
-- **No External Dependencies for Core Functionality**: User data remains on your server without third-party service integration
-- **No User Tracking**: The system does not implement analytics cookies or user tracking mechanisms
-- **Minimal Data Exposure**: Only publishes explicitly created content; no metadata leakage beyond file modification timestamps
-- **Self-Hosted Control**: Complete ownership and control over all content and user data
-
-## Features and Advantages
-
-### Core Capabilities
-- **Database-Free Architecture**: Zero database configuration or maintenance overhead
-- **Markdown-Powered**: Write content in Markdown with full GitHub Flavored Markdown support
-- **Live Preview Editor**: Real-time Markdown rendering with synchronized scrolling
-- **Mermaid Diagram Support**: Native rendering of flowcharts, sequence diagrams, and other visualizations
-- **Responsive Design**: Mobile-optimized interface with adaptive layouts
-- **Automatic Dark Mode**: System-level theme detection for comfortable viewing in any lighting
-
-### Administrative Features
-- **Analytics Dashboard**: Track post counts by day, week, month, and total storage usage
-- **Bulk Post Management**: View, edit, and delete posts from centralized dashboard
-- **Slug Auto-Generation**: Automatic URL-friendly slug creation from post titles
-- **Password Management**: Built-in interface for changing administrative credentials
-- **Flash Messaging**: User-friendly feedback for all administrative actions
-
-### Developer Benefits
-- **Version Control Friendly**: Plain-text Markdown files integrate seamlessly with Git workflows
-- **Minimal Dependencies**: Requires only PHP 7.4+ and a web server
-- **Clean Codebase**: Strict type declarations and functional programming patterns
-- **Easy Deployment**: Single-file components with no build process
-- **Extensible Architecture**: Simple file-based structure facilitates custom modifications
-
-## Installation Instructions
-
-### Prerequisites
-- PHP 7.4 or higher with the following extensions:
-  - `session` (typically enabled by default)
-  - `fileinfo` (typically enabled by default)
-- Web server (Apache, Nginx, or similar)
-- Write permissions for the application directory
-
-### Installation Steps
-
-1. **Clone the Repository**
-   ```bash
-   git clone https://github.com/xsukax/xsukax-Flat-File-CMS.git
-   cd xsukax-Flat-File-CMS
-   ```
-
-2. **Configure Web Server**
-   
-   **Apache (.htaccess example)**
-   ```apache
-   <IfModule mod_rewrite.c>
-     RewriteEngine On
-     RewriteBase /
-     RewriteCond %{REQUEST_FILENAME} !-f
-     RewriteCond %{REQUEST_FILENAME} !-d
-     RewriteRule ^admin$ admin.php [L]
-     RewriteRule ^(.*)$ index.php?p=$1 [L,QSA]
-   </IfModule>
-   ```
-
-   **Nginx Configuration**
-   ```nginx
-   location / {
-     try_files $uri $uri/ /index.php?$query_string;
-   }
-   
-   location /admin {
-     try_files $uri /admin.php?$query_string;
-   }
-   
-   location ~ \.php$ {
-     fastcgi_pass unix:/var/run/php/php7.4-fpm.sock;
-     fastcgi_index index.php;
-     include fastcgi_params;
-   }
-   ```
-
-3. **Set Directory Permissions**
-   ```bash
-   chmod 755 .
-   mkdir -p Posts
-   chmod 775 Posts
-   ```
-
-4. **Access the Application**
-   - Navigate to `https://yourdomain.com/` to view the public site
-   - Navigate to `https://yourdomain.com/admin.php` to access the admin dashboard
-   - Default credentials: `admin123` (change immediately after first login)
-
-5. **Secure the Installation**
-   - Log in to the admin dashboard
-   - Navigate to Settings
-   - Change the default password to a strong, unique passphrase
-   - Ensure the `admin.hash` file has correct permissions (should be set automatically to 0600)
-
-### Optional Enhancements
-
-**Enable HTTPS**: Configure SSL/TLS certificates using Let's Encrypt or your hosting provider
-```bash
-certbot --nginx -d yourdomain.com
-```
-
-**Restrict Admin Access by IP** (Nginx example)
-```nginx
-location /admin.php {
-  allow 192.168.1.0/24;
-  deny all;
-  include fastcgi_params;
-}
-```
-
-## Usage Guide
-
-### Creating Your First Post
-
-```mermaid
-graph TD
-    A[Access Admin Dashboard] --> B[Click 'New Post']
-    B --> C[Enter Post Title]
-    C --> D[Auto-generated Slug Preview]
-    D --> E[Click 'Create Post']
-    E --> F[Redirected to Editor]
-    F --> G[Write Content in Markdown]
-    G --> H[Enable Live Preview]
-    H --> I[Save Post]
-    I --> J[Post Published]
-```
-
-1. **Access Admin Dashboard**: Navigate to `/admin.php` and authenticate
-2. **Create New Post**: Click the "New Post" button in the dashboard header
-3. **Enter Title**: Provide a descriptive title (slug generates automatically)
-4. **Write Content**: Use the Markdown editor to compose your post
-   ```markdown
-   # Your Post Title
-   
-   Introduction paragraph with **bold** and *italic* text.
-   
-   ## Subheading
-   
-   - Bullet point 1
-   - Bullet point 2
-   
-   ```code block```
-   ```
-5. **Enable Live Preview**: Check the "Live Preview" box to see real-time rendering
-6. **Save**: Click "Save Post" to publish
-
-### Managing Existing Posts
-
-**Editing Posts**
-- Navigate to the dashboard
-- Click "Edit" next to the desired post
-- Modify content in the Markdown editor
-- Click "Save Post" to apply changes
-
-**Deleting Posts**
-- Click "Delete" next to the post in the dashboard
-- Confirm deletion in the modal dialog
-- Post file is permanently removed from the filesystem
-
-**Viewing Post Metadata**
-- Posts display modification date, file size, and generated slug
-- Dashboard analytics show posting trends over time
+The application consists of two primary components:
+- **Public Frontend** (`index.php`): A clean, responsive interface for displaying blog posts with tag-based filtering
+- **Admin Panel** (`admin.php`): A password-protected dashboard with a WYSIWYG editor for content management
 
 ### System Architecture
 
 ```mermaid
-flowchart LR
-    A[User Request] --> B{Route}
-    B -->|/ or /?p=slug| C[index.php]
-    B -->|/admin.php| D[admin.php]
+graph TB
+    A[User Browser] -->|Public Access| B[index.php - Frontend]
+    A -->|Admin Access| C[admin.php - Admin Panel]
+    C -->|Authentication| D[admin.hash - Password File]
+    B -->|Read Posts| E[Posts Directory]
+    C -->|Create/Edit/Delete| E
+    E -->|.xfc Files| F[Post Content + Metadata]
+    B -->|Generate| G[RSS Feed]
+    B -->|Generate| H[XML Sitemap]
     
-    C --> E[Load Markdown File]
-    E --> F[Render with marked.js]
-    F --> G[Sanitize with DOMPurify]
-    G --> H[Display to User]
-    
-    D --> I{Authenticated?}
-    I -->|No| J[Show Login Form]
-    I -->|Yes| K[Show Dashboard]
-    K --> L[CRUD Operations]
-    L --> M[Write to Posts/*.md]
+    style A fill:#e1f5ff
+    style B fill:#b3e5fc
+    style C fill:#ffccbc
+    style E fill:#c8e6c9
+    style D fill:#ffab91
 ```
 
-### Administrative Operations
+## 🔒 Security and Privacy Benefits
 
-**Changing Password**
-1. Click "Settings" in the admin dashboard
-2. Enter current password
-3. Provide new password (minimum 6 characters)
-4. Confirm new password
-5. Submit form
+### Security Features
 
-**Viewing Analytics**
-- Total posts count
-- Storage usage across all posts
-- Posts created today/this week/this month
-- Dashboard updates automatically based on file modification times
+1. **Password Protection with Strong Hashing**
+   - Admin panel protected by bcrypt password hashing (PHP `password_hash()`)
+   - Configurable password complexity requirements (minimum 6 characters)
+   - Secure password change functionality
 
-### Content Best Practices
+2. **CSRF Protection**
+   - All administrative actions protected by cryptographically secure CSRF tokens
+   - Session-based token validation prevents cross-site request forgery attacks
+   - Token regeneration on each session
 
-**Markdown Features**
-- Use single `#` for main title, `##` for sections, `###` for subsections
-- Create code blocks with triple backticks
-- Add Mermaid diagrams using `mermaid` language identifier
-- Tables render automatically with proper styling
+3. **Path Traversal Prevention**
+   - Robust file path validation using `realpath()` and directory boundary checks
+   - Prevents malicious attempts to access files outside the Posts directory
+   - Sanitized slug generation for all file operations
 
-**Mermaid Diagram Example**
-```markdown
+4. **Session Security**
+   - Session ID regeneration on successful login
+   - Secure session management with PHP native functions
+   - Automatic session destruction on logout
+
+5. **Input Sanitization**
+   - All user inputs sanitized before processing
+   - HTML special character encoding prevents XSS attacks
+   - Strict type declarations (`declare(strict_types=1)`)
+
+6. **File System Security**
+   - Restricted file permissions (0664 for posts, 0600 for password file)
+   - Posts stored with `.xfc` extension (not directly executable)
+   - Directory isolation for content storage
+
+7. **No Database = No SQL Injection**
+   - Flat-file architecture eliminates all SQL injection vulnerabilities
+   - No database credentials to compromise
+   - Reduced attack surface
+
+### Privacy Advantages
+
+1. **Self-Hosted Solution**
+   - Complete data sovereignty - you control all your content
+   - No third-party services or external dependencies
+   - Data never leaves your server
+
+2. **No Tracking or Analytics**
+   - Zero built-in tracking mechanisms
+   - No cookies except for admin authentication
+   - No external API calls or beacons
+
+3. **Minimal Dependencies**
+   - Only external resources: Google Fonts and Quill.js editor (both from CDN)
+   - Core functionality works offline after initial load
+   - No telemetry or usage reporting
+
+4. **Transparent Data Storage**
+   - Plain-text files (HTML with metadata comments)
+   - Easy to backup, migrate, and audit
+   - No proprietary formats or locked-in data
+
+## ✨ Features and Advantages
+
+### Core Functionality
+
+- **📝 WYSIWYG Editor**: Intuitive Quill.js editor with rich formatting options
+- **🏷️ Tag-Based Organization**: Flexible content categorization using tags
+- **📱 Responsive Design**: Mobile-first design with dark mode support
+- **🔍 SEO Friendly**: Automatic sitemap.xml and RSS feed generation
+- **⚡ Lightning Fast**: No database queries = instant page loads
+- **🎨 Modern UI**: Clean, Apple-inspired interface with smooth animations
+- **🔐 Secure Admin Panel**: Password-protected with CSRF protection
+
+### Technical Advantages
+
+- **Zero Configuration**: Drop files on server and run - no complex setup
+- **Minimal Server Requirements**: Runs on any PHP 8.0+ hosting
+- **Easy Backups**: Copy the Posts directory to backup all content
+- **Version Control Friendly**: Text-based storage works perfectly with Git
+- **Portable**: Migrate between servers by copying files
+- **Resource Efficient**: Minimal CPU and memory footprint
+- **No Maintenance**: No database updates or schema migrations
+
+### Content Management
+
+- **Real-time Preview**: View posts as they appear to visitors
+- **Draft Management**: Create and edit without immediate publication
+- **Bulk Operations**: Manage multiple posts from dashboard
+- **Analytics Dashboard**: View post statistics at a glance
+- **File Size Tracking**: Monitor content storage usage
+
+## 📦 Installation Instructions
+
+### Prerequisites
+
+- **PHP**: Version 8.0 or higher
+- **Web Server**: Apache, Nginx, or similar
+- **File Permissions**: Write access to application directory
+
+### Step 1: Download and Extract
+
+```bash
+# Clone the repository
+git clone https://github.com/xsukax/xsukax-Flat-File-CMS.git
+
+# Navigate to the directory
+cd xsukax-Flat-File-CMS
+```
+
+### Step 2: Configure Web Server
+
+**For Apache (.htaccess example):**
+
+```apache
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /
+    
+    # Protect admin password file
+    <Files "admin.hash">
+        Order Allow,Deny
+        Deny from all
+    </Files>
+    
+    # Optional: Clean URLs
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^([a-z0-9-]+)$ index.php?p=$1 [L,QSA]
+</IfModule>
+```
+
+**For Nginx (nginx.conf example):**
+
+```nginx
+location / {
+    try_files $uri $uri/ /index.php?$query_string;
+}
+
+location ~ ^/admin\.hash$ {
+    deny all;
+}
+
+location ~ \.php$ {
+    fastcgi_pass unix:/var/run/php/php8.0-fpm.sock;
+    fastcgi_index index.php;
+    include fastcgi_params;
+}
+```
+
+### Step 3: Set File Permissions
+
+```bash
+# Make Posts directory writable
+chmod 755 Posts/
+
+# Ensure PHP can create admin.hash
+chmod 755 .
+
+# After first login, secure the password file
+chmod 600 admin.hash
+```
+
+### Step 4: Configure Application
+
+Edit the constants in both `index.php` and `admin.php`:
+
+```php
+const SITE_URL = 'https://yourdomain.com';  // Your site URL
+const SITE_NAME = 'Your Blog Name';         // Site title
+const SITE_DESC = 'Your blog description';  // Meta description
+```
+
+### Step 5: Access and Secure
+
+1. Open `https://yourdomain.com/admin.php` in your browser
+2. Login with default password: `admin123`
+3. **IMMEDIATELY** change the password via Settings → Change Password
+4. Start creating content!
+
+## 📖 Usage Guide
+
+### Content Workflow
+
 ```mermaid
 sequenceDiagram
-    User->>+Admin: Login Request
-    Admin->>+Session: Validate Credentials
-    Session-->>-Admin: Auth Token
-    Admin-->>-User: Dashboard Access
-` ` `
+    participant A as Admin
+    participant P as Admin Panel
+    participant F as File System
+    participant V as Visitors
+
+    A->>P: Login with password
+    P->>P: Verify credentials
+    A->>P: Create new post
+    A->>P: Add title and tags
+    A->>P: Write content in editor
+    A->>P: Click "Create Post"
+    P->>F: Save post as .xfc file
+    A->>P: Edit post content
+    A->>P: Click "Save Changes"
+    P->>F: Update .xfc file
+    V->>F: Request page
+    F->>V: Display post content
+    A->>P: Delete post (with confirmation)
+    P->>F: Remove .xfc file
 ```
 
-### Security Maintenance
+### Creating Your First Post
 
-**Regular Security Tasks**
-- Change admin password every 90 days
-- Review `Posts/` directory permissions periodically
-- Monitor server logs for unauthorized access attempts
-- Keep PHP version updated to receive security patches
-- Backup `Posts/` directory and `admin.hash` file regularly
+1. **Access Admin Panel**
+   - Navigate to `/admin.php`
+   - Enter your password
 
-**Backup Procedure**
-```bash
-# Backup posts and configuration
-tar -czf xsukax-backup-$(date +%Y%m%d).tar.gz Posts/ admin.hash
+2. **Create New Post**
+   - Click "+ New Post" in the dashboard
+   - Enter a descriptive title (e.g., "Welcome to My Blog")
+   - Add comma-separated tags (e.g., "welcome, introduction, blog")
+   - Click "✓ Create Post"
 
-# Restore from backup
-tar -xzf xsukax-backup-YYYYMMDD.tar.gz
+3. **Edit Content**
+   - Use the Quill editor to format your content
+   - Add headings, lists, links, and images
+   - Utilize the toolbar for formatting:
+     - **Headers**: H1, H2, H3
+     - **Formatting**: Bold, Italic, Underline, Strike
+     - **Lists**: Ordered and Unordered
+     - **Media**: Links and Images
+
+4. **Save and Preview**
+   - Click "✓ Save Changes" to save
+   - Click "👁 Preview" to view as visitors see it
+   - Make adjustments as needed
+
+### Managing Existing Posts
+
+**Dashboard Overview:**
+- View all posts sorted by date (newest first)
+- See post titles, dates, file sizes
+- Quick access to Edit, View, and Delete actions
+
+**Editing Posts:**
+1. Click "✏️ Edit" on any post
+2. Modify content in the WYSIWYG editor
+3. Update tags as needed
+4. Save changes or preview
+
+**Deleting Posts:**
+1. Click "🗑 Delete" on any post
+2. Confirm deletion in modal dialog
+3. Post is permanently removed
+
+### Tag-Based Filtering
+
+**Frontend (Visitor View):**
+- Tags appear as clickable chips on homepage
+- Click any tag to filter posts
+- Click "All Posts" to reset filter
+
+### RSS and Sitemap
+
+**Automatic Generation:**
+- RSS Feed: `https://yourdomain.com/rss.xml`
+- Sitemap: `https://yourdomain.com/sitemap.xml`
+
+Both are automatically generated from your posts with no additional configuration required.
+
+### Changing Admin Password
+
+1. Access Admin Panel
+2. Click "⚙️ Settings"
+3. Enter current password
+4. Enter new password (minimum 6 characters)
+5. Confirm new password
+6. Click "Update Password"
+
+### Data Structure
+
+```mermaid
+graph LR
+    A[Post File: example-post.xfc] --> B[Metadata Section]
+    A --> C[Content Section]
+    B --> D[<!--META<br/>tags: tag1, tag2<br/>META-->]
+    C --> E[HTML Content<br/>h1, p, images, etc.]
+    
+    style A fill:#e3f2fd
+    style B fill:#fff3e0
+    style C fill:#f3e5f5
+    style D fill:#ffe0b2
+    style E fill:#e1bee7
 ```
 
-## System Requirements
+**Example Post File Structure:**
+```html
+<!--META
+tags: technology, tutorial, php
+META-->
+<h1>My First Post</h1>
+<p>This is the content of my post...</p>
+```
+
+## 🛠️ Technical Specifications
+
+### File Structure
+
+```
+xsukax-Flat-File-CMS/
+├── index.php           # Public frontend
+├── admin.php           # Admin panel
+├── admin.hash          # Hashed admin password (auto-generated)
+└── Posts/              # Content directory
+    ├── post-one.xfc
+    ├── post-two.xfc
+    └── ...
+```
+
+### System Requirements
 
 | Component | Requirement |
-|-----------|-------------|
-| PHP | 7.4 or higher |
-| Web Server | Apache 2.4+, Nginx 1.18+, or equivalent |
-| Disk Space | 10MB + content storage |
-| RAM | 64MB minimum (shared hosting compatible) |
-| Browser (Admin) | Modern browser with JavaScript enabled |
+|-----------|------------|
+| PHP Version | 8.0 or higher |
+| PHP Extensions | Standard library (no special extensions) |
+| Web Server | Apache 2.4+ / Nginx 1.18+ |
+| Disk Space | 10 MB + content storage |
+| Memory | 64 MB minimum |
 
-## Troubleshooting
+### Browser Compatibility
 
-**Issue**: Cannot create posts
-- **Solution**: Verify `Posts/` directory exists and has write permissions (775)
+- Chrome/Edge 90+
+- Firefox 88+
+- Safari 14+
+- Mobile browsers (iOS Safari, Chrome Mobile)
 
-**Issue**: Admin login fails with correct password
-- **Solution**: Clear browser cookies and PHP sessions, then retry
+## 🔧 Customization
 
-**Issue**: Posts not displaying on homepage
-- **Solution**: Check that `.md` files exist in `Posts/` directory with proper permissions (644)
+### Styling
 
-**Issue**: Live preview not working
-- **Solution**: Verify JavaScript is enabled and CDN resources (marked.js, DOMPurify) are accessible
+Both `index.php` and `admin.php` contain embedded CSS using CSS custom properties (variables). Modify the `:root` section to customize colors:
 
-## License
+```css
+:root {
+    --bg: #ffffff;
+    --fg: #1d1d1f;
+    --accent: #007aff;
+    --card: #f5f5f7;
+    --border: #d2d2d7;
+}
+```
+
+### Adding Custom Fonts
+
+Replace the Google Fonts import in the `<head>` section:
+
+```html
+<link href="https://fonts.googleapis.com/css2?family=YourFont:wght@400;500;600;700&display=swap" rel="stylesheet">
+```
+
+## 📄 Backup and Migration
+
+### Backup Strategy
+
+**Quick Backup:**
+```bash
+# Backup all content and configuration
+tar -czf xsukax-backup-$(date +%Y%m%d).tar.gz Posts/ admin.hash
+```
+
+**Automated Backup (cron example):**
+```bash
+# Add to crontab for daily backups at 2 AM
+0 2 * * * cd /path/to/cms && tar -czf backup-$(date +\%Y\%m\%d).tar.gz Posts/ admin.hash
+```
+
+### Migration Steps
+
+1. Backup source installation
+2. Transfer `Posts/` directory to new server
+3. Transfer `admin.hash` file to preserve password
+4. Update `SITE_URL` constant in both PHP files
+5. Configure web server on new location
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**Issue: Cannot login to admin panel**
+- Solution: Delete `admin.hash` file, default password will be `admin123`
+
+**Issue: Posts not saving**
+- Solution: Check `Posts/` directory permissions (`chmod 755 Posts/`)
+
+**Issue: 404 errors on posts**
+- Solution: Verify web server rewrite rules are configured
+
+**Issue: Changes not appearing**
+- Solution: Clear browser cache or use hard refresh (Ctrl+F5)
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit pull requests or open issues on GitHub.
+
+### Development Guidelines
+
+1. Maintain PHP 8.0+ compatibility
+2. Follow existing code style and structure
+3. Test on multiple PHP versions
+4. Document new features
+5. Preserve security best practices
+
+## 📜 License
 
 This project is licensed under the **GNU General Public License v3.0**.
 
-You are free to use, modify, and distribute this software under the terms of the GPLv3. Any derivative works must also be licensed under GPLv3. For complete license terms, see the [LICENSE](LICENSE) file or visit [https://www.gnu.org/licenses/gpl-3.0.en.html](https://www.gnu.org/licenses/gpl-3.0.en.html).
+You are free to:
+- Use the software for any purpose
+- Study and modify the source code
+- Distribute copies of the software
+- Distribute modified versions
 
-### Key License Terms
-- **Freedom to Use**: Run the program for any purpose
-- **Freedom to Study**: Access and modify source code
-- **Freedom to Distribute**: Share copies with others
-- **Freedom to Improve**: Distribute modified versions
-- **Copyleft**: Derivative works must use GPLv3
+Under the following terms:
+- Source code must be made available when distributing
+- Modifications must be released under GPL v3.0
+- Changes must be documented
+- No warranty is provided
 
-## Contributing
+See the [LICENSE](LICENSE) file for complete details, or visit [https://www.gnu.org/licenses/gpl-3.0.html](https://www.gnu.org/licenses/gpl-3.0.html).
 
-Contributions are welcome. Please submit pull requests to the repository with clear descriptions of changes and any relevant test cases.
+## 🙏 Acknowledgments
 
-## Support
+- **Quill.js** - Modern WYSIWYG editor
+- **Google Fonts** - Inter font family
+- **PHP Community** - For excellent documentation and tools
 
-For bug reports and feature requests, please open an issue on the GitHub repository: [xsukax/xsukax-Flat-File-CMS](https://github.com/xsukax/xsukax-Flat-File-CMS)
+## 📧 Support
+
+For issues, questions, or suggestions:
+- Open an issue on [GitHub](https://github.com/xsukax/xsukax-Flat-File-CMS/issues)
+- Review existing documentation
+- Check troubleshooting section
 
 ---
 
-**xsukax Flat-File CMS** - Simple. Secure. Elegant.
+**Made with ❤️ for simplicity, security, and privacy**
+
+*Star this repository if you find it useful!*
