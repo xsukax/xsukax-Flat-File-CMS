@@ -5,7 +5,7 @@ ini_set('display_errors', '0');
 header('Content-Type: text/html; charset=UTF-8');
 
 const POSTS_DIR = __DIR__ . '/Posts';
-const ADMIN_FILE = __DIR__ . '/admin.hash';
+const ADMIN_FILE = '../admin.hash';
 const SITE_URL = 'https://yourdomain.com';
 
 if (!is_dir(POSTS_DIR)) { @mkdir(POSTS_DIR, 0775, true); }
@@ -107,6 +107,25 @@ function get_analytics(): array {
   return compact('total','today','thisWeek','thisMonth','totalSize');
 }
 
+function get_all_existing_tags(): array {
+  $allTags = [];
+  $files = @glob(POSTS_DIR . '/*.xfc');
+  if (!$files) return [];
+  
+  foreach ($files as $file) {
+    if (!is_file($file)) continue;
+    $content = @file_get_contents($file);
+    if ($content) {
+      $meta = parse_post_meta($content);
+      $allTags = array_merge($allTags, $meta['tags']);
+    }
+  }
+  
+  $allTags = array_values(array_unique($allTags));
+  sort($allTags);
+  return $allTags;
+}
+
 if (empty($_SESSION['csrf'])) { $_SESSION['csrf'] = bin2hex(random_bytes(16)); }
 function require_csrf(): void { if (($_POST['csrf'] ?? '') !== ($_SESSION['csrf'] ?? null)) { http_response_code(400); exit('Bad CSRF'); } }
 
@@ -148,8 +167,16 @@ if ($logged && $_SERVER['REQUEST_METHOD'] === 'POST') {
   
   if ($action === 'create') {
     $title = trim((string)($_POST['title'] ?? ''));
-    $tagsStr = trim((string)($_POST['tags'] ?? ''));
-    $tags = $tagsStr ? array_filter(array_map('trim', explode(',', $tagsStr))) : [];
+    $selectedTags = $_POST['existing_tags'] ?? [];
+    $newTagsStr = trim((string)($_POST['new_tags'] ?? ''));
+    
+    $tags = array_filter($selectedTags);
+    if ($newTagsStr) {
+      $newTags = array_filter(array_map('trim', explode(',', $newTagsStr)));
+      $tags = array_merge($tags, $newTags);
+    }
+    $tags = array_values(array_unique($tags));
+    
     $slug = sanitize_slug($title);
     
     if (!$title) {
@@ -175,8 +202,16 @@ if ($logged && $_SERVER['REQUEST_METHOD'] === 'POST') {
   if ($action === 'save') {
     $slug = sanitize_slug((string)($_POST['slug'] ?? ''));
     $content = (string)($_POST['content'] ?? '');
-    $tagsStr = trim((string)($_POST['tags'] ?? ''));
-    $tags = $tagsStr ? array_filter(array_map('trim', explode(',', $tagsStr))) : [];
+    $selectedTags = $_POST['existing_tags'] ?? [];
+    $newTagsStr = trim((string)($_POST['new_tags'] ?? ''));
+    
+    $tags = array_filter($selectedTags);
+    if ($newTagsStr) {
+      $newTags = array_filter(array_map('trim', explode(',', $newTagsStr)));
+      $tags = array_merge($tags, $newTags);
+    }
+    $tags = array_values(array_unique($tags));
+    
     $path = safe_post_path($slug);
     
     if (!$path || !is_file($path)) { 
@@ -240,6 +275,7 @@ $editMeta = $editRawBody ? parse_post_meta($editRawBody) : ['tags' => []];
 $editBody = $editRawBody ? get_post_content($editRawBody) : '';
 $editTitle = $editBody ? extract_title($editBody) : '';
 $analytics = $logged ? get_analytics() : null;
+$allExistingTags = $logged ? get_all_existing_tags() : [];
 ?><!DOCTYPE html>
 <html lang="en">
 <head>
@@ -312,8 +348,14 @@ a:hover{opacity:0.8;}
 .modal-title{font-size:18px;font-weight:600;margin-bottom:16px;}
 .modal-text{color:var(--muted);margin-bottom:24px;line-height:1.6;}
 .modal-actions{display:flex;gap:12px;justify-content:flex-end;}
+.tags-section{margin-bottom:20px;}
+.tags-section-title{font-size:13px;font-weight:600;margin-bottom:12px;color:var(--fg);}
+.tags-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;max-height:200px;overflow-y:auto;padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:8px;}
+.tag-checkbox{display:flex;align-items:center;gap:6px;}
+.tag-checkbox input[type="checkbox"]{width:16px;height:16px;cursor:pointer;}
+.tag-checkbox label{font-size:13px;cursor:pointer;user-select:none;}
 @media (prefers-color-scheme:dark){.ql-toolbar.ql-snow{background:var(--card);border-color:var(--border);}.ql-container.ql-snow{border-color:var(--border);}.ql-editor{background:var(--bg);color:var(--fg);}}
-@media (max-width:768px){.main{padding:16px;}.page-head{flex-direction:column;align-items:flex-start;}.page-actions{align-items:stretch;width:100%;}.page-actions-row{flex-direction:column;}.stats{grid-template-columns:1fr 1fr;gap:12px;}.table{font-size:12px;}.table td{padding:10px 8px;}.actions{flex-direction:column;gap:4px;width:100%;}}
+@media (max-width:768px){.main{padding:16px;}.page-head{flex-direction:column;align-items:flex-start;}.page-actions{align-items:stretch;width:100%;}.page-actions-row{flex-direction:column;}.stats{grid-template-columns:1fr 1fr;gap:12px;}.table{font-size:12px;}.table td{padding:10px 8px;}.actions{flex-direction:column;gap:4px;width:100%;}.tags-grid{grid-template-columns:1fr;}}
 </style>
 </head>
 <body>
@@ -401,10 +443,24 @@ a:hover{opacity:0.8;}
             <p class="hint">A URL-friendly slug will be generated from the title</p>
           </div>
           
+          <?php if(!empty($allExistingTags)): ?>
+          <div class="tags-section">
+            <div class="tags-section-title">Select Existing Tags:</div>
+            <div class="tags-grid">
+              <?php foreach($allExistingTags as $tag): ?>
+                <div class="tag-checkbox">
+                  <input type="checkbox" name="existing_tags[]" value="<?=htmlspecialchars($tag)?>" id="tag-<?=htmlspecialchars($tag)?>">
+                  <label for="tag-<?=htmlspecialchars($tag)?>"><?=htmlspecialchars($tag)?></label>
+                </div>
+              <?php endforeach; ?>
+            </div>
+          </div>
+          <?php endif; ?>
+          
           <div class="form-group">
-            <label>Tags</label>
-            <input type="text" name="tags" placeholder="technology, design, coding">
-            <p class="hint">Comma-separated tags</p>
+            <label>Add New Tags</label>
+            <input type="text" name="new_tags" placeholder="technology, design, coding">
+            <p class="hint">Comma-separated tags (will be added to existing tags above)</p>
           </div>
         </div>
       </div>
@@ -433,10 +489,24 @@ a:hover{opacity:0.8;}
       
       <div style="max-width:1000px">
         <div class="card">
+          <?php if(!empty($allExistingTags)): ?>
+          <div class="tags-section">
+            <div class="tags-section-title">Select Tags:</div>
+            <div class="tags-grid">
+              <?php foreach($allExistingTags as $tag): ?>
+                <div class="tag-checkbox">
+                  <input type="checkbox" name="existing_tags[]" value="<?=htmlspecialchars($tag)?>" id="tag-<?=htmlspecialchars($tag)?>" <?=in_array($tag, $editMeta['tags']) ? 'checked' : ''?>>
+                  <label for="tag-<?=htmlspecialchars($tag)?>"><?=htmlspecialchars($tag)?></label>
+                </div>
+              <?php endforeach; ?>
+            </div>
+          </div>
+          <?php endif; ?>
+          
           <div class="form-group">
-            <label>Tags</label>
-            <input type="text" name="tags" value="<?=htmlspecialchars(implode(', ', $editMeta['tags']))?>" placeholder="technology, design, coding">
-            <p class="hint">Comma-separated tags</p>
+            <label>Add New Tags</label>
+            <input type="text" name="new_tags" placeholder="technology, design, coding">
+            <p class="hint">Comma-separated tags (will be added to selected tags above)</p>
           </div>
           
           <div class="editor-wrap">
