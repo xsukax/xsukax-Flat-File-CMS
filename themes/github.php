@@ -62,10 +62,14 @@ a:hover{text-decoration:underline;}
 .content ul,.content ol{margin:16px 0;padding-left:32px;line-height:1.6;}
 .content li{margin:8px 0;}
 .content blockquote{margin:16px 0;padding:0 16px;border-left:4px solid var(--border);color:var(--fgSecondary);}
-.content pre{background:var(--bgSecondary);border:1px solid var(--border);border-radius:var(--radius);padding:16px;overflow-x:auto;margin:16px 0;}
+.content pre{background:var(--bgSecondary);border:1px solid var(--border);border-radius:var(--radius);padding:16px;overflow-x:auto;margin:16px 0;position:relative;}
 .content code{background:var(--bgSecondary);padding:2px 6px;border-radius:3px;font-size:85%;font-family:ui-monospace,monospace;}
 .content pre code{background:none;padding:0;}
 .content img{max-width:100%;height:auto;border-radius:var(--radius);border:1px solid var(--border);margin:16px 0;}
+.copy-btn{position:absolute;top:8px;right:8px;padding:4px 12px;background:var(--bgSecondary);border:1px solid var(--border);border-radius:var(--radius);font-size:12px;font-weight:500;color:var(--fgPrimary);cursor:pointer;opacity:0;transition:opacity 0.2s,background 0.2s;}
+.copy-btn:hover{background:var(--bgPrimary);border-color:var(--borderHover);}
+.content pre:hover .copy-btn{opacity:1;}
+.copy-btn.copied{background:var(--success);color:#fff;border-color:var(--success);}
 .footer{background:var(--bgSecondary);border-top:1px solid var(--border);padding:40px 0;margin-top:64px;}
 .footer-inner{max-width:1280px;margin:0 auto;padding:0 32px;display:flex;justify-content:space-between;gap:32px;flex-wrap:wrap;}
 .footer-col h3{font-size:14px;font-weight:600;margin-bottom:12px;}
@@ -84,7 +88,7 @@ a:hover{text-decoration:underline;}
 .empty p{font-size:14px;margin-bottom:16px;}
 .empty a{display:inline-block;padding:8px 16px;background:var(--accent);color:#fff;border-radius:var(--radius);font-weight:500;}
 .empty a:hover{opacity:0.9;text-decoration:none;}
-@media (max-width:768px){.header-inner,.container,.footer-inner{padding:0 16px;}.nav{display:none;}.hero h1{font-size:24px;}.posts-grid{grid-template-columns:1fr;}.content{padding:20px;}.footer-inner{flex-direction:column;}}
+@media (max-width:768px){.header-inner,.container,.footer-inner{padding:0 16px;}.nav{display:none;}.hero h1{font-size:24px;}.posts-grid{grid-template-columns:1fr;}.content{padding:20px;}.footer-inner{flex-direction:column;}.copy-btn{opacity:1;}}
 </style>
 </head>
 <body>
@@ -229,5 +233,116 @@ a:hover{text-decoration:underline;}
     </div>
   </div>
 </footer>
+
+<script>
+(function() {
+  'use strict';
+  
+  // Wait for DOM to be ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCopyButtons);
+  } else {
+    initCopyButtons();
+  }
+  
+  function initCopyButtons() {
+    // Find all code blocks within .content
+    var codeBlocks = document.querySelectorAll('.content pre');
+    
+    codeBlocks.forEach(function(pre) {
+      // Skip if button already exists
+      if (pre.querySelector('.copy-btn')) return;
+      
+      // Create copy button
+      var button = document.createElement('button');
+      button.className = 'copy-btn';
+      button.textContent = 'Copy';
+      button.setAttribute('type', 'button');
+      button.setAttribute('aria-label', 'Copy code to clipboard');
+      
+      // Add click event
+      button.addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        // Get code text (excluding the button itself)
+        var codeElement = pre.querySelector('code');
+        var codeText = '';
+        
+        if (codeElement) {
+          codeText = codeElement.textContent || codeElement.innerText;
+        } else {
+          // Clone the pre element and remove the button to get clean text
+          var preClone = pre.cloneNode(true);
+          var btnClone = preClone.querySelector('.copy-btn');
+          if (btnClone) {
+            btnClone.remove();
+          }
+          codeText = preClone.textContent || preClone.innerText;
+        }
+        
+        // Copy to clipboard
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(codeText).then(function() {
+            // Success feedback
+            button.textContent = '✓ Copied!';
+            button.classList.add('copied');
+            
+            setTimeout(function() {
+              button.textContent = 'Copy';
+              button.classList.remove('copied');
+            }, 2000);
+          }).catch(function(err) {
+            // Fallback for errors
+            fallbackCopy(codeText, button);
+          });
+        } else {
+          // Fallback for older browsers
+          fallbackCopy(codeText, button);
+        }
+      });
+      
+      // Append button to pre element
+      pre.appendChild(button);
+    });
+  }
+  
+  // Fallback copy method for older browsers
+  function fallbackCopy(text, button) {
+    var textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+      var successful = document.execCommand('copy');
+      if (successful) {
+        button.textContent = '✓ Copied!';
+        button.classList.add('copied');
+        setTimeout(function() {
+          button.textContent = 'Copy';
+          button.classList.remove('copied');
+        }, 2000);
+      } else {
+        button.textContent = 'Failed';
+        setTimeout(function() {
+          button.textContent = 'Copy';
+        }, 2000);
+      }
+    } catch (err) {
+      button.textContent = 'Failed';
+      setTimeout(function() {
+        button.textContent = 'Copy';
+      }, 2000);
+    }
+    
+    document.body.removeChild(textArea);
+  }
+})();
+</script>
+
 </body>
 </html>
