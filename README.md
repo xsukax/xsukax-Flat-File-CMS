@@ -2,6 +2,8 @@
 
 A secure, themeable flat-file content management system. No database required.
 
+![xsukax-Flat-File-CMS](https://raw.githubusercontent.com/xsukax/xsukax-Flat-File-CMS/refs/heads/main/Screenshot.png)
+
 ## Overview
 
 xsukax combines enterprise-grade security with flexible theming in a lightweight PHP-based CMS. Features external password storage and dynamic theme switching without any database dependencies.
