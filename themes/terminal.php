@@ -88,11 +88,17 @@ a:hover{color:var(--prompt);border-bottom-color:var(--prompt);background:rgba(25
 .content li::marker{color:var(--fg);}
 .content blockquote{margin:16px 0;padding:12px 16px;border-left:3px solid var(--border);background:rgba(0,255,65,0.05);color:var(--fgDim);}
 .content blockquote::before{content:'> ';color:var(--fg);font-weight:700;}
-.content pre{background:rgba(0,0,0,0.5);border:1px solid var(--border);padding:16px;overflow-x:auto;margin:16px 0;border-radius:4px;}
+.content pre{background:rgba(0,0,0,0.5);border:1px solid var(--border);padding:16px;overflow-x:auto;margin:16px 0;border-radius:4px;position:relative;}
 .content code{background:rgba(0,0,0,0.5);padding:2px 6px;border:1px solid var(--fgMuted);border-radius:3px;font-size:13px;color:var(--accent);}
 .content pre code{background:none;padding:0;border:none;color:var(--fg);}
 .content img{max-width:100%;height:auto;border:2px solid var(--border);margin:16px 0;border-radius:4px;filter:contrast(1.1) brightness(0.9);}
 .content a{color:var(--accent);}
+.copy-btn{position:absolute;top:8px;right:8px;padding:4px 10px;background:rgba(0,0,0,0.7);border:1px solid var(--border);color:var(--fg);font-size:11px;font-weight:600;cursor:pointer;border-radius:3px;opacity:0;transition:all 0.2s;text-transform:uppercase;font-family:inherit;}
+.copy-btn::before{content:'[';margin-right:2px;}
+.copy-btn::after{content:']';margin-left:2px;}
+.copy-btn:hover{background:rgba(0,255,65,0.2);box-shadow:0 0 10px rgba(0,255,65,0.3);}
+.content pre:hover .copy-btn{opacity:1;}
+.copy-btn.copied{background:rgba(0,255,65,0.3);color:var(--fg);border-color:var(--fg);box-shadow:0 0 15px rgba(0,255,65,0.5);}
 .footer{border-top:2px solid var(--border);padding:20px 0;margin-top:40px;}
 .footer-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:24px;margin-bottom:20px;}
 .footer-section h3{font-size:14px;color:var(--prompt);margin-bottom:12px;text-transform:uppercase;}
@@ -117,7 +123,7 @@ a:hover{color:var(--prompt);border-bottom-color:var(--prompt);background:rgba(25
 .empty a:hover{background:rgba(0,255,65,0.3);box-shadow:0 0 10px rgba(0,255,65,0.3);border-bottom:1px solid var(--border);}
 .status-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(0,255,65,0.1);border-top:1px solid var(--border);padding:4px 20px;font-size:11px;color:var(--fgMuted);z-index:1000;}
 .status-bar::before{content:'[ONLINE] ';color:var(--fg);}
-@media (max-width:768px){.terminal-window{margin:10px;}.terminal-body{padding:12px;}.hero h1{font-size:20px;}.post-item{padding:12px;}.content{padding:16px;}.footer-grid{grid-template-columns:1fr;}.status-bar{font-size:10px;padding:4px 10px;}}
+@media (max-width:768px){.terminal-window{margin:10px;}.terminal-body{padding:12px;}.hero h1{font-size:20px;}.post-item{padding:12px;}.content{padding:16px;}.footer-grid{grid-template-columns:1fr;}.status-bar{font-size:10px;padding:4px 10px;}.copy-btn{opacity:1;}}
 </style>
 </head>
 <body>
@@ -273,6 +279,116 @@ a:hover{color:var(--prompt);border-bottom-color:var(--prompt);background:rgba(25
 <div class="status-bar">
   Session: <?=session_id() ?: 'GUEST'?> | Time: <?=date('H:i:s')?> | Theme: <?=strtoupper($currentTheme)?> | Uptime: <?=number_format(time())?> sec
 </div>
+
+<script>
+(function() {
+  'use strict';
+  
+  // Wait for DOM to be ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initCopyButtons);
+  } else {
+    initCopyButtons();
+  }
+  
+  function initCopyButtons() {
+    // Find all code blocks within .content
+    var codeBlocks = document.querySelectorAll('.content pre');
+    
+    codeBlocks.forEach(function(pre) {
+      // Skip if button already exists
+      if (pre.querySelector('.copy-btn')) return;
+      
+      // Create copy button
+      var button = document.createElement('button');
+      button.className = 'copy-btn';
+      button.textContent = 'COPY';
+      button.setAttribute('type', 'button');
+      button.setAttribute('aria-label', 'Copy code to clipboard');
+      
+      // Add click event
+      button.addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        // Get code text (excluding the button itself)
+        var codeElement = pre.querySelector('code');
+        var codeText = '';
+        
+        if (codeElement) {
+          codeText = codeElement.textContent || codeElement.innerText;
+        } else {
+          // Clone the pre element and remove the button to get clean text
+          var preClone = pre.cloneNode(true);
+          var btnClone = preClone.querySelector('.copy-btn');
+          if (btnClone) {
+            btnClone.remove();
+          }
+          codeText = preClone.textContent || preClone.innerText;
+        }
+        
+        // Copy to clipboard
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(codeText).then(function() {
+            // Success feedback
+            button.textContent = 'COPIED';
+            button.classList.add('copied');
+            
+            setTimeout(function() {
+              button.textContent = 'COPY';
+              button.classList.remove('copied');
+            }, 2000);
+          }).catch(function(err) {
+            // Fallback for errors
+            fallbackCopy(codeText, button);
+          });
+        } else {
+          // Fallback for older browsers
+          fallbackCopy(codeText, button);
+        }
+      });
+      
+      // Append button to pre element
+      pre.appendChild(button);
+    });
+  }
+  
+  // Fallback copy method for older browsers
+  function fallbackCopy(text, button) {
+    var textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.style.position = 'fixed';
+    textArea.style.left = '-999999px';
+    textArea.style.top = '-999999px';
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    
+    try {
+      var successful = document.execCommand('copy');
+      if (successful) {
+        button.textContent = 'COPIED';
+        button.classList.add('copied');
+        setTimeout(function() {
+          button.textContent = 'COPY';
+          button.classList.remove('copied');
+        }, 2000);
+      } else {
+        button.textContent = 'FAILED';
+        setTimeout(function() {
+          button.textContent = 'COPY';
+        }, 2000);
+      }
+    } catch (err) {
+      button.textContent = 'FAILED';
+      setTimeout(function() {
+        button.textContent = 'COPY';
+      }, 2000);
+    }
+    
+    document.body.removeChild(textArea);
+  }
+})();
+</script>
 
 </body>
 </html>
