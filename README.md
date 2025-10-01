@@ -353,7 +353,6 @@ See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html
 ## Support
 
 - **Issues**: [GitHub Issues](https://github.com/xsukax/xsukax-Flat-File-CMS/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/xsukax/xsukax-Flat-File-CMS/discussions)
 
 ---
 
