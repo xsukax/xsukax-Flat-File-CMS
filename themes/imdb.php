@@ -16,9 +16,15 @@ body{background:var(--imdb-dark);color:var(--imdb-text);font-family:'Roboto',-ap
 a{color:var(--imdb-yellow);text-decoration:none;}
 a:hover{text-decoration:underline;}
 .header{background:var(--imdb-darker);border-bottom:2px solid var(--imdb-yellow);padding:0;position:sticky;top:0;z-index:100;}
-.header-inner{max-width:1400px;margin:0 auto;padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:60px;}
+.header-inner{max-width:1400px;margin:0 auto;padding:0 20px;display:flex;align-items:center;justify-content:space-between;height:60px;gap:20px;flex-wrap:wrap;}
 .brand{display:flex;align-items:center;gap:10px;font-size:24px;font-weight:700;color:var(--imdb-yellow);text-transform:uppercase;letter-spacing:1px;}
 .brand:hover{text-decoration:none;opacity:0.9;}
+.search-form{display:flex;gap:8px;flex:1;max-width:500px;}
+.search-input{flex:1;padding:8px 12px;background:var(--imdb-card-bg);border:1px solid var(--imdb-border);border-radius:var(--radius);color:var(--imdb-text);font-size:14px;min-width:200px;}
+.search-input:focus{outline:none;border-color:var(--imdb-yellow);}
+.search-input::placeholder{color:var(--imdb-light-gray);}
+.search-btn{padding:8px 16px;background:var(--imdb-yellow);color:var(--imdb-darker);border:none;border-radius:var(--radius);font-size:14px;font-weight:600;cursor:pointer;text-transform:uppercase;}
+.search-btn:hover{background:var(--imdb-yellow-hover);}
 .nav{display:flex;gap:20px;align-items:center;}
 .nav a{font-size:14px;font-weight:500;color:var(--imdb-text);padding:8px 12px;border-radius:var(--radius);transition:all 0.2s;}
 .nav a:hover{background:var(--imdb-gray);text-decoration:none;color:var(--imdb-yellow);}
@@ -29,6 +35,10 @@ a:hover{text-decoration:underline;}
 .hero:before{content:"";position:absolute;top:0;left:0;right:0;bottom:0;background:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" opacity="0.05"><defs><pattern id="stars" x="0" y="0" width="100" height="100" patternUnits="userSpaceOnUse"><circle cx="20" cy="20" r="1" fill="white"/><circle cx="50" cy="50" r="0.5" fill="white"/><circle cx="80" cy="30" r="0.7" fill="white"/><circle cx="30" cy="80" r="0.8" fill="white"/><circle cx="70" cy="70" r="0.6" fill="white"/></pattern></defs><rect width="100" height="100" fill="url(%23stars)"/></svg>');}
 .hero h1{font-size:36px;font-weight:700;margin-bottom:10px;color:var(--imdb-yellow);position:relative;}
 .hero p{font-size:16px;color:var(--imdb-text-secondary);max-width:600px;margin:0 auto;position:relative;}
+.search-info{background:var(--imdb-card-bg);border:1px solid var(--imdb-border);border-radius:var(--radius);padding:16px 20px;margin:25px 0;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;}
+.search-info-text{font-size:14px;color:var(--imdb-text-secondary);font-weight:500;}
+.clear-search{padding:6px 14px;background:var(--imdb-gray);border:1px solid var(--imdb-border);border-radius:var(--radius);font-size:13px;color:var(--imdb-text);font-weight:500;text-decoration:none;}
+.clear-search:hover{background:var(--imdb-yellow);border-color:var(--imdb-yellow);color:var(--imdb-darker);text-decoration:none;}
 .filters{background:var(--imdb-card-bg);border:1px solid var(--imdb-border);border-radius:var(--radius);padding:20px;margin:25px 0;}
 .filter-title{font-size:18px;font-weight:600;margin-bottom:15px;color:var(--imdb-yellow);border-bottom:1px solid var(--imdb-border);padding-bottom:8px;}
 .filter-chips{display:flex;gap:8px;flex-wrap:wrap;}
@@ -93,7 +103,7 @@ a:hover{text-decoration:underline;}
 .empty p{font-size:14px;margin-bottom:20px;}
 .empty a{display:inline-block;padding:12px 24px;background:var(--imdb-yellow);color:var(--imdb-darker);border-radius:var(--radius);font-weight:600;text-transform:uppercase;letter-spacing:0.5px;}
 .empty a:hover{background:var(--imdb-yellow-hover);text-decoration:none;}
-@media (max-width:768px){.header-inner,.container,.footer-inner{padding:0 15px;}.nav{display:none;}.hero{padding:25px;}.hero h1{font-size:28px;}.posts-grid{grid-template-columns:1fr;}.content{padding:20px;}.footer-inner{flex-direction:column;gap:25px;}.copy-btn{opacity:1;}}
+@media (max-width:768px){.header-inner{flex-direction:column;height:auto;padding:10px 15px;}.search-form{max-width:100%;}.nav{display:none;}.container,.footer-inner{padding:0 15px;}.hero{padding:25px;}.hero h1{font-size:28px;}.posts-grid{grid-template-columns:1fr;}.content{padding:20px;}.footer-inner{flex-direction:column;gap:25px;}.copy-btn{opacity:1;}.search-input{min-width:150px;}}
 </style>
 </head>
 <body>
@@ -102,6 +112,10 @@ a:hover{text-decoration:underline;}
     <a href="/" class="brand">
       <span style="font-size:16px;color:var(--imdb-light-gray);margin-left:5px;"><?=htmlspecialchars(SITE_NAME)?></span>
     </a>
+    <form method="get" class="search-form">
+      <input type="search" name="s" class="search-input" placeholder="Search posts..." value="<?=htmlspecialchars($search)?>">
+      <button type="submit" class="search-btn">Search</button>
+    </form>
     <nav class="nav">
       <a href="/rss.xml">RSS</a>
       <a href="/sitemap.xml">Sitemap</a>
@@ -119,13 +133,24 @@ a:hover{text-decoration:underline;}
       </div>
     </section>
     
-    <?php if(!empty($allTags)): ?>
+    <?php if($search): ?>
+    <div class="container">
+      <div class="search-info">
+        <span class="search-info-text">
+          Found <?=$totalPosts?> result<?=$totalPosts !== 1 ? 's' : ''?> for "<?=htmlspecialchars($search)?>"
+        </span>
+        <a href="/" class="clear-search">Clear Search</a>
+      </div>
+    </div>
+    <?php endif; ?>
+    
+    <?php if(!empty($allTags) && !$search): ?>
     <div class="container">
       <div class="filters">
         <div class="filter-title">Browse by Tags</div>
         <div class="filter-chips">
           <a href="/" class="chip <?=!isset($_GET['tag'])?'active':''?>">All Posts</a>
-          <?php foreach(array_slice($allTags,0,15) as $t): ?>
+          <?php foreach(array_slice($allTags,0,20) as $t): ?>
             <a href="/?tag=<?=urlencode($t)?>" class="chip <?=$tag===$t?'active':''?>">#<?=htmlspecialchars($t)?></a>
           <?php endforeach; ?>
         </div>
@@ -137,9 +162,11 @@ a:hover{text-decoration:underline;}
       <div class="container">
         <?php if(empty($posts)): ?>
           <div class="empty">
-            <h2>No Content Available</h2>
-            <p>Be the first to create amazing content</p>
+            <h2><?=$search ? 'No Results Found' : 'No Content Available'?></h2>
+            <p><?=$search ? 'Try a different search term' : 'Be the first to create amazing content'?></p>
+            <?php if(!$search): ?>
             <a href="/admin.php">Create First Post</a>
+            <?php endif; ?>
           </div>
         <?php else: ?>
           <div class="posts-grid">
@@ -164,21 +191,21 @@ a:hover{text-decoration:underline;}
           <?php if($totalPages > 1): ?>
           <div class="pagination">
             <?php if($page > 1): ?>
-              <a href="<?=build_url(['tag' => $tag ?: null, 'page' => $page - 1])?>" class="page-link">← Previous</a>
+              <a href="<?=build_url(['tag' => $tag ?: null, 's' => $search ?: null, 'page' => $page - 1])?>" class="page-link">← Previous</a>
             <?php else: ?>
               <span class="page-link disabled">← Previous</span>
             <?php endif; ?>
             
             <?php for($i = 1; $i <= $totalPages; $i++): ?>
               <?php if($i == 1 || $i == $totalPages || abs($i - $page) <= 2): ?>
-                <a href="<?=build_url(['tag' => $tag ?: null, 'page' => $i])?>" class="page-link <?=$i === $page ? 'active' : ''?>"><?=$i?></a>
+                <a href="<?=build_url(['tag' => $tag ?: null, 's' => $search ?: null, 'page' => $i])?>" class="page-link <?=$i === $page ? 'active' : ''?>"><?=$i?></a>
               <?php elseif(abs($i - $page) == 3): ?>
                 <span class="page-link disabled">...</span>
               <?php endif; ?>
             <?php endfor; ?>
             
             <?php if($page < $totalPages): ?>
-              <a href="<?=build_url(['tag' => $tag ?: null, 'page' => $page + 1])?>" class="page-link">Next →</a>
+              <a href="<?=build_url(['tag' => $tag ?: null, 's' => $search ?: null, 'page' => $page + 1])?>" class="page-link">Next →</a>
             <?php else: ?>
               <span class="page-link disabled">Next →</span>
             <?php endif; ?>
@@ -193,7 +220,7 @@ a:hover{text-decoration:underline;}
         <a href="/" class="back">Back to Posts</a>
         <article class="content">
           <div class="post-meta" style="margin-bottom:20px;">
-            <span>📅 <?=get_post_date($file)?></span>
+            <span>📅 <?=get_post_date($postMeta['created'] ?: @filemtime($file))?></span>
           </div>
           <?=$content?>
           <?php if(!empty($postMeta['tags'])): ?>
@@ -245,7 +272,6 @@ a:hover{text-decoration:underline;}
 (function() {
   'use strict';
   
-  // Wait for DOM to be ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initCopyButtons);
   } else {
@@ -253,32 +279,26 @@ a:hover{text-decoration:underline;}
   }
   
   function initCopyButtons() {
-    // Find all code blocks within .content
     var codeBlocks = document.querySelectorAll('.content pre');
     
     codeBlocks.forEach(function(pre) {
-      // Skip if button already exists
       if (pre.querySelector('.copy-btn')) return;
       
-      // Create copy button
       var button = document.createElement('button');
       button.className = 'copy-btn';
       button.textContent = 'Copy';
       button.setAttribute('type', 'button');
       button.setAttribute('aria-label', 'Copy code to clipboard');
       
-      // Add click event
       button.addEventListener('click', function(e) {
         e.preventDefault();
         
-        // Get code text (excluding the button itself)
         var codeElement = pre.querySelector('code');
         var codeText = '';
         
         if (codeElement) {
           codeText = codeElement.textContent || codeElement.innerText;
         } else {
-          // Clone the pre element and remove the button to get clean text
           var preClone = pre.cloneNode(true);
           var btnClone = preClone.querySelector('.copy-btn');
           if (btnClone) {
@@ -287,10 +307,8 @@ a:hover{text-decoration:underline;}
           codeText = preClone.textContent || preClone.innerText;
         }
         
-        // Copy to clipboard
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(codeText).then(function() {
-            // Success feedback
             button.textContent = 'Copied!';
             button.classList.add('copied');
             
@@ -299,21 +317,17 @@ a:hover{text-decoration:underline;}
               button.classList.remove('copied');
             }, 2000);
           }).catch(function(err) {
-            // Fallback for errors
             fallbackCopy(codeText, button);
           });
         } else {
-          // Fallback for older browsers
           fallbackCopy(codeText, button);
         }
       });
       
-      // Append button to pre element
       pre.appendChild(button);
     });
   }
   
-  // Fallback copy method for older browsers
   function fallbackCopy(text, button) {
     var textArea = document.createElement('textarea');
     textArea.value = text;
