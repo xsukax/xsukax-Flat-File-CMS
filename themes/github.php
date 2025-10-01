@@ -17,17 +17,26 @@ body{background:var(--bgPrimary);color:var(--fgPrimary);font:400 14px/1.5 'Inter
 a{color:var(--accent);text-decoration:none;}
 a:hover{text-decoration:underline;}
 .header{background:var(--bgPrimary);border-bottom:1px solid var(--border);padding:16px 0;}
-.header-inner{max-width:1280px;margin:0 auto;padding:0 32px;display:flex;align-items:center;justify-content:space-between;}
+.header-inner{max-width:1280px;margin:0 auto;padding:0 32px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
 .brand{font-size:20px;font-weight:600;color:var(--fgPrimary);}
 .brand:hover{text-decoration:none;}
-.nav{display:flex;gap:16px;align-items:center;}
+.nav{display:flex;gap:16px;align-items:center;flex-wrap:wrap;}
 .nav a{font-size:14px;font-weight:500;color:var(--fgPrimary);}
 .admin-link{background:var(--bgSecondary);padding:5px 16px;border-radius:var(--radius);border:1px solid var(--border);}
 .admin-link:hover{background:var(--bgSecondary);border-color:var(--borderHover);text-decoration:none;}
+.search-form{display:flex;gap:8px;}
+.search-input{padding:5px 12px;background:var(--bgPrimary);border:1px solid var(--border);border-radius:var(--radius);font-size:14px;color:var(--fgPrimary);min-width:200px;}
+.search-input:focus{outline:none;border-color:var(--accent);}
+.search-btn{padding:5px 16px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-size:14px;font-weight:500;cursor:pointer;}
+.search-btn:hover{opacity:0.9;}
 .container{max-width:1280px;margin:0 auto;padding:0 32px;}
 .hero{padding:48px 0 32px;}
 .hero h1{font-size:32px;font-weight:600;margin-bottom:8px;}
 .hero p{font-size:16px;color:var(--fgSecondary);}
+.search-info{background:var(--bgSecondary);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;margin:24px 0;display:flex;justify-content:space-between;align-items:center;}
+.search-info-text{font-size:14px;color:var(--fgSecondary);}
+.clear-search{padding:4px 12px;background:var(--bgPrimary);border:1px solid var(--border);border-radius:var(--radius);font-size:12px;font-weight:500;color:var(--fgPrimary);text-decoration:none;}
+.clear-search:hover{background:var(--bgSecondary);border-color:var(--borderHover);text-decoration:none;}
 .filters{background:var(--bgSecondary);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin:24px 0;}
 .filter-title{font-size:12px;font-weight:600;text-transform:uppercase;color:var(--fgSecondary);margin-bottom:12px;}
 .filter-chips{display:flex;gap:8px;flex-wrap:wrap;}
@@ -88,13 +97,17 @@ a:hover{text-decoration:underline;}
 .empty p{font-size:14px;margin-bottom:16px;}
 .empty a{display:inline-block;padding:8px 16px;background:var(--accent);color:#fff;border-radius:var(--radius);font-weight:500;}
 .empty a:hover{opacity:0.9;text-decoration:none;}
-@media (max-width:768px){.header-inner,.container,.footer-inner{padding:0 16px;}.nav{display:none;}.hero h1{font-size:24px;}.posts-grid{grid-template-columns:1fr;}.content{padding:20px;}.footer-inner{flex-direction:column;}.copy-btn{opacity:1;}}
+@media (max-width:768px){.header-inner,.container,.footer-inner{padding:0 16px;}.nav{display:none;}.hero h1{font-size:24px;}.posts-grid{grid-template-columns:1fr;}.content{padding:20px;}.footer-inner{flex-direction:column;}.copy-btn{opacity:1;}.search-input{min-width:150px;}}
 </style>
 </head>
 <body>
 <header class="header">
   <div class="header-inner">
     <a href="/" class="brand">📦 <?=htmlspecialchars(SITE_NAME)?></a>
+    <form method="get" class="search-form">
+      <input type="search" name="s" class="search-input" placeholder="Search posts..." value="<?=htmlspecialchars($search)?>">
+      <button type="submit" class="search-btn">Search</button>
+    </form>
     <nav class="nav">
       <a href="/rss.xml">RSS</a>
       <a href="/sitemap.xml">Sitemap</a>
@@ -112,13 +125,24 @@ a:hover{text-decoration:underline;}
       </div>
     </section>
     
-    <?php if(!empty($allTags)): ?>
+    <?php if($search): ?>
+    <div class="container">
+      <div class="search-info">
+        <span class="search-info-text">
+          Found <?=$totalPosts?> result<?=$totalPosts !== 1 ? 's' : ''?> for "<?=htmlspecialchars($search)?>"
+        </span>
+        <a href="/" class="clear-search">Clear search</a>
+      </div>
+    </div>
+    <?php endif; ?>
+    
+    <?php if(!empty($allTags) && !$search): ?>
     <div class="container">
       <div class="filters">
         <div class="filter-title">Filter by Tags</div>
         <div class="filter-chips">
           <a href="/" class="chip <?=!isset($_GET['tag'])?'active':''?>">All Posts</a>
-          <?php foreach(array_slice($allTags,0,15) as $t): ?>
+          <?php foreach(array_slice($allTags,0,20) as $t): ?>
             <a href="/?tag=<?=urlencode($t)?>" class="chip <?=$tag===$t?'active':''?>">#<?=htmlspecialchars($t)?></a>
           <?php endforeach; ?>
         </div>
@@ -130,9 +154,11 @@ a:hover{text-decoration:underline;}
       <div class="container">
         <?php if(empty($posts)): ?>
           <div class="empty">
-            <h2>No posts yet</h2>
-            <p>Start creating amazing content</p>
+            <h2><?=$search ? 'No results found' : 'No posts yet'?></h2>
+            <p><?=$search ? 'Try a different search term' : 'Start creating amazing content'?></p>
+            <?php if(!$search): ?>
             <a href="/admin.php">Create First Post</a>
+            <?php endif; ?>
           </div>
         <?php else: ?>
           <div class="posts-grid">
@@ -157,21 +183,21 @@ a:hover{text-decoration:underline;}
           <?php if($totalPages > 1): ?>
           <div class="pagination">
             <?php if($page > 1): ?>
-              <a href="<?=build_url(['tag' => $tag ?: null, 'page' => $page - 1])?>" class="page-link">← Previous</a>
+              <a href="<?=build_url(['tag' => $tag ?: null, 's' => $search ?: null, 'page' => $page - 1])?>" class="page-link">← Previous</a>
             <?php else: ?>
               <span class="page-link disabled">← Previous</span>
             <?php endif; ?>
             
             <?php for($i = 1; $i <= $totalPages; $i++): ?>
               <?php if($i == 1 || $i == $totalPages || abs($i - $page) <= 2): ?>
-                <a href="<?=build_url(['tag' => $tag ?: null, 'page' => $i])?>" class="page-link <?=$i === $page ? 'active' : ''?>"><?=$i?></a>
+                <a href="<?=build_url(['tag' => $tag ?: null, 's' => $search ?: null, 'page' => $i])?>" class="page-link <?=$i === $page ? 'active' : ''?>"><?=$i?></a>
               <?php elseif(abs($i - $page) == 3): ?>
                 <span class="page-link disabled">...</span>
               <?php endif; ?>
             <?php endfor; ?>
             
             <?php if($page < $totalPages): ?>
-              <a href="<?=build_url(['tag' => $tag ?: null, 'page' => $page + 1])?>" class="page-link">Next →</a>
+              <a href="<?=build_url(['tag' => $tag ?: null, 's' => $search ?: null, 'page' => $page + 1])?>" class="page-link">Next →</a>
             <?php else: ?>
               <span class="page-link disabled">Next →</span>
             <?php endif; ?>
@@ -186,7 +212,7 @@ a:hover{text-decoration:underline;}
         <a href="/" class="back">Back to Posts</a>
         <article class="content">
           <div class="post-meta" style="margin-bottom:16px;">
-            <span>📅 <?=get_post_date($file)?></span>
+            <span>📅 <?=get_post_date($postMeta['created'] ?: @filemtime($file))?></span>
           </div>
           <?=$content?>
           <?php if(!empty($postMeta['tags'])): ?>
@@ -238,7 +264,6 @@ a:hover{text-decoration:underline;}
 (function() {
   'use strict';
   
-  // Wait for DOM to be ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initCopyButtons);
   } else {
@@ -246,32 +271,26 @@ a:hover{text-decoration:underline;}
   }
   
   function initCopyButtons() {
-    // Find all code blocks within .content
     var codeBlocks = document.querySelectorAll('.content pre');
     
     codeBlocks.forEach(function(pre) {
-      // Skip if button already exists
       if (pre.querySelector('.copy-btn')) return;
       
-      // Create copy button
       var button = document.createElement('button');
       button.className = 'copy-btn';
       button.textContent = 'Copy';
       button.setAttribute('type', 'button');
       button.setAttribute('aria-label', 'Copy code to clipboard');
       
-      // Add click event
       button.addEventListener('click', function(e) {
         e.preventDefault();
         
-        // Get code text (excluding the button itself)
         var codeElement = pre.querySelector('code');
         var codeText = '';
         
         if (codeElement) {
           codeText = codeElement.textContent || codeElement.innerText;
         } else {
-          // Clone the pre element and remove the button to get clean text
           var preClone = pre.cloneNode(true);
           var btnClone = preClone.querySelector('.copy-btn');
           if (btnClone) {
@@ -280,10 +299,8 @@ a:hover{text-decoration:underline;}
           codeText = preClone.textContent || preClone.innerText;
         }
         
-        // Copy to clipboard
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(codeText).then(function() {
-            // Success feedback
             button.textContent = '✓ Copied!';
             button.classList.add('copied');
             
@@ -292,21 +309,17 @@ a:hover{text-decoration:underline;}
               button.classList.remove('copied');
             }, 2000);
           }).catch(function(err) {
-            // Fallback for errors
             fallbackCopy(codeText, button);
           });
         } else {
-          // Fallback for older browsers
           fallbackCopy(codeText, button);
         }
       });
       
-      // Append button to pre element
       pre.appendChild(button);
     });
   }
   
-  // Fallback copy method for older browsers
   function fallbackCopy(text, button) {
     var textArea = document.createElement('textarea');
     textArea.value = text;
