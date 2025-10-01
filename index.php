@@ -4,14 +4,31 @@ ini_set('display_errors', '0');
 
 const POSTS_DIR = __DIR__ . '/Posts';
 const THEMES_DIR = __DIR__ . '/themes';
-const SITE_URL = 'https://yourdomain.com';
-const SITE_NAME = 'xsukax Flat-File CMS';
-const SITE_DESC = 'A modern, elegant flat-file CMS for professional blogs';
-const POSTS_PER_PAGE = 12;
+const CONFIG_FILE = __DIR__ . '/../config.php';
 
 if (!is_dir(POSTS_DIR)) { @mkdir(POSTS_DIR, 0775, true); }
 
-// Handle theme selection
+function get_config(): array {
+  $defaults = [
+    'SITE_URL' => 'https://yourdomain.com',
+    'SITE_NAME' => 'xsukax Flat-File CMS',
+    'SITE_DESC' => 'A modern, elegant flat-file CMS for professional blogs',
+    'POSTS_PER_PAGE' => 12,
+    'ADMIN_FILE' => '../admin.hash'
+  ];
+  if (file_exists(CONFIG_FILE)) {
+    $config = @include CONFIG_FILE;
+    return is_array($config) ? array_merge($defaults, $config) : $defaults;
+  }
+  return $defaults;
+}
+
+$config = get_config();
+define('SITE_URL', $config['SITE_URL']);
+define('SITE_NAME', $config['SITE_NAME']);
+define('SITE_DESC', $config['SITE_DESC']);
+define('POSTS_PER_PAGE', (int)$config['POSTS_PER_PAGE']);
+
 if (isset($_POST['change_theme'])) {
   $theme = sanitize_slug($_POST['theme'] ?? 'github');
   setcookie('theme', $theme, time() + (365 * 24 * 60 * 60), '/');
@@ -40,7 +57,7 @@ function safe_post_path(string $slug): ?string {
 }
 
 function parse_post_meta(string $content): array {
-  $meta = ['tags' => []];
+  $meta = ['tags' => [], 'created' => null];
   if (preg_match('/<!--META\s*(.*?)\s*META-->/s', $content, $matches)) {
     $metaLines = explode("\n", trim($matches[1]));
     foreach ($metaLines as $line) {
@@ -50,6 +67,8 @@ function parse_post_meta(string $content): array {
         $value = trim($value);
         if ($key === 'tags' && $value) {
           $meta['tags'] = array_filter(array_map('trim', explode(',', $value)));
+        } elseif ($key === 'created' && $value) {
+          $meta['created'] = (int)$value;
         }
       }
     }
@@ -61,8 +80,8 @@ function get_post_content(string $content): string {
   return preg_replace('/<!--META\s*.*?\s*META-->/s', '', $content);
 }
 
-function get_post_date(string $file): string {
-  return date('F j, Y', @filemtime($file));
+function get_post_date(int $timestamp): string {
+  return date('F j, Y', $timestamp);
 }
 
 function extract_title(string $content): string {
@@ -78,7 +97,7 @@ function extract_excerpt(string $content, int $length = 160): string {
   return strlen($content) > $length ? substr($content, 0, $length) . '...' : $content;
 }
 
-function get_all_posts(?string $tagFilter = null): array {
+function get_all_posts(?string $tagFilter = null, ?string $searchQuery = null): array {
   $posts = [];
   $files = @glob(POSTS_DIR . '/*.xfc');
   if (!$files) return [];
@@ -91,17 +110,27 @@ function get_all_posts(?string $tagFilter = null): array {
     
     $meta = parse_post_meta($postContent);
     $cleanContent = get_post_content($postContent);
+    $title = extract_title($cleanContent);
     
     if ($tagFilter && !in_array($tagFilter, $meta['tags'])) continue;
     
+    if ($searchQuery) {
+      $searchLower = strtolower($searchQuery);
+      $titleLower = strtolower($title);
+      $contentLower = strtolower(strip_tags($cleanContent));
+      if (strpos($titleLower, $searchLower) === false && strpos($contentLower, $searchLower) === false) continue;
+    }
+    
+    $created = $meta['created'] ?: @filemtime($f);
+    
     $posts[] = [
       'slug' => $name,
-      'title' => extract_title($cleanContent),
+      'title' => $title,
       'content' => $cleanContent,
       'tags' => $meta['tags'],
-      'date' => get_post_date($f),
+      'date' => get_post_date($created),
       'excerpt' => extract_excerpt($cleanContent),
-      'timestamp' => @filemtime($f),
+      'timestamp' => $created,
       'url' => SITE_URL . '/?p=' . urlencode($name)
     ];
   }
@@ -121,7 +150,6 @@ function get_available_themes(): array {
   return $themes;
 }
 
-// Sitemap
 if (isset($_SERVER['REQUEST_URI']) && preg_match('/sitemap\.xml$/i', $_SERVER['REQUEST_URI'])) {
   header('Content-Type: application/xml; charset=UTF-8');
   $posts = get_all_posts();
@@ -135,20 +163,21 @@ if (isset($_SERVER['REQUEST_URI']) && preg_match('/sitemap\.xml$/i', $_SERVER['R
   exit;
 }
 
-// RSS
 if (isset($_SERVER['REQUEST_URI']) && preg_match('/(rss|feed)\.xml$/i', $_SERVER['REQUEST_URI'])) {
   header('Content-Type: application/rss+xml; charset=UTF-8');
   $posts = array_slice(get_all_posts(), 0, 20);
   echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
-  echo '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel>' . "\n";
-  echo '  <title>' . htmlspecialchars(SITE_NAME) . '</title><link>' . htmlspecialchars(SITE_URL) . '</link>' . "\n";
-  echo '  <description>' . htmlspecialchars(SITE_DESC) . '</description><language>en-us</language>' . "\n";
+  echo '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">' . "\n";
+  echo '<channel>' . "\n";
+  echo '<title>' . htmlspecialchars(SITE_NAME) . '</title>' . "\n";
+  echo '<link>' . htmlspecialchars(SITE_URL) . '</link>' . "\n";
+  echo '<description>' . htmlspecialchars(SITE_DESC) . '</description>' . "\n";
+  echo '<language>en-us</language>' . "\n";
   foreach ($posts as $post) {
-    echo '  <item><title>' . htmlspecialchars($post['title']) . '</title><link>' . htmlspecialchars($post['url']) . '</link>' . "\n";
-    echo '    <guid>' . htmlspecialchars($post['url']) . '</guid><description>' . htmlspecialchars($post['excerpt']) . '</description>' . "\n";
-    echo '    <pubDate>' . date('r', $post['timestamp']) . '</pubDate></item>' . "\n";
+    echo '<item><title>' . htmlspecialchars($post['title']) . '</title><link>' . htmlspecialchars($post['url']) . '</link><guid>' . htmlspecialchars($post['url']) . '</guid><description>' . htmlspecialchars($post['excerpt']) . '</description><pubDate>' . date('r', $post['timestamp']) . '</pubDate></item>' . "\n";
   }
-  echo '</channel></rss>';
+  echo '</channel>' . "\n";
+  echo '</rss>';
   exit;
 }
 
@@ -156,6 +185,7 @@ header('Content-Type: text/html; charset=UTF-8');
 
 $slug = sanitize_slug($_GET['p'] ?? '');
 $tag = isset($_GET['tag']) ? trim($_GET['tag']) : '';
+$search = isset($_GET['s']) ? trim($_GET['s']) : '';
 $page = max(1, (int)($_GET['page'] ?? 1));
 $is_home = empty($slug) || $slug === 'home';
 $file = null;
@@ -176,7 +206,7 @@ if (!$is_home) {
   http_response_code($status);
 }
 
-$allPosts = get_all_posts($tag ?: null);
+$allPosts = get_all_posts($tag ?: null, $search ?: null);
 $totalPosts = count($allPosts);
 $totalPages = max(1, (int)ceil($totalPosts / POSTS_PER_PAGE));
 $page = min($page, $totalPages);
@@ -190,18 +220,17 @@ foreach (get_all_posts() as $p) {
   $allTags = array_merge($allTags, $p['tags']);
 }
 $allTags = array_values(array_unique($allTags));
-sort($allTags);
+shuffle($allTags);
 
 $availableThemes = get_available_themes();
 
-// Build pagination URLs
 function build_url(array $params): string {
   $base = strtok($_SERVER['REQUEST_URI'], '?');
-  $query = http_build_query($params);
+  $filtered = array_filter($params, fn($v) => $v !== null && $v !== '');
+  $query = http_build_query($filtered);
   return $base . ($query ? '?' . $query : '');
 }
 
-// Load theme template
 $themeFile = THEMES_DIR . '/' . sanitize_slug($currentTheme) . '.php';
 if (!file_exists($themeFile)) {
   $themeFile = THEMES_DIR . '/github.php';
