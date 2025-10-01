@@ -5,10 +5,33 @@ ini_set('display_errors', '0');
 header('Content-Type: text/html; charset=UTF-8');
 
 const POSTS_DIR = __DIR__ . '/Posts';
-const ADMIN_FILE = '../admin.hash';
-const SITE_URL = 'https://yourdomain.com';
+const CONFIG_FILE = __DIR__ . '/../config.php';
 
 if (!is_dir(POSTS_DIR)) { @mkdir(POSTS_DIR, 0775, true); }
+
+function get_config(): array {
+  $defaults = [
+    'SITE_URL' => 'https://yourdomain.com',
+    'SITE_NAME' => 'xsukax Flat-File CMS',
+    'SITE_DESC' => 'A modern, elegant flat-file CMS for professional blogs',
+    'POSTS_PER_PAGE' => 12,
+    'ADMIN_FILE' => '../admin.hash'
+  ];
+  if (file_exists(CONFIG_FILE)) {
+    $config = @include CONFIG_FILE;
+    return is_array($config) ? array_merge($defaults, $config) : $defaults;
+  }
+  return $defaults;
+}
+
+function save_config(array $config): bool {
+  $content = "<?php\nreturn " . var_export($config, true) . ";\n";
+  return @file_put_contents(CONFIG_FILE, $content, LOCK_EX) !== false;
+}
+
+$config = get_config();
+define('SITE_URL', $config['SITE_URL']);
+define('ADMIN_FILE', __DIR__ . '/' . ltrim($config['ADMIN_FILE'], './'));
 
 function sanitize_slug(string $s): string {
   $s = strtolower($s);
@@ -45,7 +68,7 @@ function update_admin_hash(string $password): void {
 }
 
 function parse_post_meta(string $content): array {
-  $meta = ['tags' => []];
+  $meta = ['tags' => [], 'created' => null];
   if (preg_match('/<!--META\s*(.*?)\s*META-->/s', $content, $matches)) {
     $metaLines = explode("\n", trim($matches[1]));
     foreach ($metaLines as $line) {
@@ -55,6 +78,8 @@ function parse_post_meta(string $content): array {
         $value = trim($value);
         if ($key === 'tags' && $value) {
           $meta['tags'] = array_filter(array_map('trim', explode(',', $value)));
+        } elseif ($key === 'created' && $value) {
+          $meta['created'] = (int)$value;
         }
       }
     }
@@ -66,9 +91,10 @@ function get_post_content(string $content): string {
   return preg_replace('/<!--META\s*.*?\s*META-->/s', '', $content);
 }
 
-function create_post_with_meta(string $content, array $tags): string {
+function create_post_with_meta(string $content, array $tags, ?int $created = null): string {
   $tagsStr = implode(', ', $tags);
-  return "<!--META\ntags: $tagsStr\nMETA-->\n" . $content;
+  $created = $created ?: time();
+  return "<!--META\ntags: $tagsStr\ncreated: $created\nMETA-->\n" . $content;
 }
 
 function extract_title(string $content): string {
@@ -97,7 +123,10 @@ function get_analytics(): array {
   
   foreach ($files as $file) {
     if (!is_file($file)) continue;
-    $time = @filemtime($file);
+    $rawContent = @file_get_contents($file);
+    if (!$rawContent) continue;
+    $meta = parse_post_meta($rawContent);
+    $time = $meta['created'] ?: @filemtime($file);
     $totalSize += @filesize($file);
     if ($time >= $dayStart) $today++;
     if ($time >= $weekStart) $thisWeek++;
@@ -146,6 +175,23 @@ if (($_POST['action'] ?? '') === 'login') {
 if ($logged && $_SERVER['REQUEST_METHOD'] === 'POST') {
   require_csrf();
   $action = (string)($_POST['action'] ?? '');
+  
+  if ($action === 'save_settings') {
+    $newConfig = [
+      'SITE_URL' => trim((string)($_POST['site_url'] ?? '')),
+      'SITE_NAME' => trim((string)($_POST['site_name'] ?? '')),
+      'SITE_DESC' => trim((string)($_POST['site_desc'] ?? '')),
+      'POSTS_PER_PAGE' => max(1, (int)($_POST['posts_per_page'] ?? 12)),
+      'ADMIN_FILE' => trim((string)($_POST['admin_file'] ?? '../admin.hash'))
+    ];
+    
+    if (save_config($newConfig)) {
+      $_SESSION['flash'] = 'Settings saved successfully.';
+    } else {
+      $_SESSION['flash'] = 'Failed to save settings.';
+    }
+    redirect('admin.php?settings=1');
+  }
   
   if ($action === 'change_password') {
     $current = (string)($_POST['current_password'] ?? '');
@@ -219,7 +265,11 @@ if ($logged && $_SERVER['REQUEST_METHOD'] === 'POST') {
       redirect('admin.php'); 
     }
     
-    $body = create_post_with_meta($content, $tags);
+    $oldContent = @file_get_contents($path);
+    $oldMeta = parse_post_meta($oldContent);
+    $created = $oldMeta['created'];
+    
+    $body = create_post_with_meta($content, $tags, $created);
     @file_put_contents($path, $body, LOCK_EX);
     $_SESSION['flash']='Post saved successfully.';
     redirect('admin.php?edit='.$slug);
@@ -249,16 +299,25 @@ if ($files) {
     if (!$rawContent) continue;
     $meta = parse_post_meta($rawContent);
     $cleanContent = get_post_content($rawContent);
+    $created = $meta['created'] ?: @filemtime($f);
     $posts[$n] = [
       'name' => $n,
       'title' => extract_title($cleanContent),
       'tags' => $meta['tags'],
-      'date' => @filemtime($f),
+      'date' => $created,
       'size' => @filesize($f)
     ]; 
   }
   uasort($posts, fn($a, $b) => $b['date'] - $a['date']);
 }
+
+$dashPage = max(1, (int)($_GET['dpage'] ?? 1));
+$postsPerDashPage = 12;
+$totalDashPosts = count($posts);
+$totalDashPages = max(1, (int)ceil($totalDashPosts / $postsPerDashPage));
+$dashPage = min($dashPage, $totalDashPages);
+$dashOffset = ($dashPage - 1) * $postsPerDashPage;
+$paginatedPosts = array_slice($posts, $dashOffset, $postsPerDashPage, true);
 
 $page = '';
 if ($logged) {
@@ -340,7 +399,6 @@ a:hover{text-decoration:underline;}
 .table-actions{display:flex;gap:8px;flex-wrap:wrap;}
 .post-title-cell{font-weight:500;}
 .post-meta{font-size:12px;color:var(--color-fg-muted);margin-top:4px;}
-.tag-badge{display:inline-block;padding:0 7px;background:var(--color-accent-emphasis);color:#ffffff;border-radius:2em;font-size:12px;margin-right:4px;}
 .empty-state{text-align:center;padding:48px 16px;color:var(--color-fg-muted);}
 .empty-state h3{font-size:20px;margin-bottom:8px;color:var(--color-fg-default);}
 .editor-container{margin:16px 0;}
@@ -362,6 +420,11 @@ a:hover{text-decoration:underline;}
 .modal-title{font-size:20px;font-weight:600;}
 .modal-body{margin-bottom:24px;color:var(--color-fg-muted);line-height:1.5;}
 .modal-footer{display:flex;gap:8px;justify-content:flex-end;}
+.pagination{display:flex;gap:8px;align-items:center;justify-content:center;margin:16px 0;flex-wrap:wrap;}
+.page-link{padding:5px 12px;background:var(--color-btn-bg);border:1px solid var(--color-btn-border);border-radius:6px;font-size:14px;color:var(--color-fg-default);font-weight:500;text-decoration:none;}
+.page-link:hover{background:var(--color-btn-hover-bg);border-color:var(--color-btn-hover-border);text-decoration:none;}
+.page-link.active{background:var(--color-accent-emphasis);color:#fff;border-color:var(--color-accent-emphasis);}
+.page-link.disabled{opacity:0.5;cursor:not-allowed;pointer-events:none;}
 @media (max-width:768px){.main{padding:16px;}.page-header-row{flex-direction:column;align-items:stretch;}.page-actions{flex-direction:column;}.stats-grid{grid-template-columns:1fr;}.table{font-size:12px;}.table th,.table td{padding:8px;}.tags-grid{grid-template-columns:1fr;}}
 </style>
 </head>
@@ -416,26 +479,60 @@ a:hover{text-decoration:underline;}
     <div style="max-width:800px">
       <div class="box">
         <div class="box-header">
-          <h2 class="box-title">Change password</h2>
+          <h2 class="box-title">Site Settings</h2>
+        </div>
+        <div class="box-body">
+          <form method="post">
+            <input type="hidden" name="csrf" value="<?=$_SESSION['csrf']?>">
+            <input type="hidden" name="action" value="save_settings">
+            <div class="form-group">
+              <label class="form-label">Site URL</label>
+              <input type="text" name="site_url" class="form-control" value="<?=htmlspecialchars($config['SITE_URL'])?>" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Site Name</label>
+              <input type="text" name="site_name" class="form-control" value="<?=htmlspecialchars($config['SITE_NAME'])?>" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Site Description</label>
+              <input type="text" name="site_desc" class="form-control" value="<?=htmlspecialchars($config['SITE_DESC'])?>" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Posts Per Page</label>
+              <input type="number" name="posts_per_page" class="form-control" value="<?=htmlspecialchars((string)$config['POSTS_PER_PAGE'])?>" min="1" max="100" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Admin Hash File Path</label>
+              <input type="text" name="admin_file" class="form-control" value="<?=htmlspecialchars($config['ADMIN_FILE'])?>" required>
+              <p class="form-hint">Relative to the site root directory</p>
+            </div>
+            <button class="btn btn-primary" type="submit">Save Settings</button>
+          </form>
+        </div>
+      </div>
+      
+      <div class="box">
+        <div class="box-header">
+          <h2 class="box-title">Change Password</h2>
         </div>
         <div class="box-body">
           <form method="post">
             <input type="hidden" name="csrf" value="<?=$_SESSION['csrf']?>">
             <input type="hidden" name="action" value="change_password">
             <div class="form-group">
-              <label class="form-label">Current password</label>
+              <label class="form-label">Current Password</label>
               <input type="password" name="current_password" class="form-control" required>
             </div>
             <div class="form-group">
-              <label class="form-label">New password</label>
+              <label class="form-label">New Password</label>
               <input type="password" name="new_password" class="form-control" required minlength="6">
               <p class="form-hint">Must be at least 6 characters</p>
             </div>
             <div class="form-group">
-              <label class="form-label">Confirm new password</label>
+              <label class="form-label">Confirm New Password</label>
               <input type="password" name="confirm_password" class="form-control" required minlength="6">
             </div>
-            <button class="btn btn-primary" type="submit">Update password</button>
+            <button class="btn btn-primary" type="submit">Update Password</button>
           </form>
         </div>
       </div>
@@ -536,7 +633,7 @@ a:hover{text-decoration:underline;}
                 <div id="editor"><?=$editBody?></div>
               </div>
               <div class="editor-footer">
-                Last modified: <?=date('F j, Y \a\t g:i A', @filemtime($editPath))?>
+                Created: <?=date('F j, Y \a\t g:i A', $editMeta['created'] ?: @filemtime($editPath))?>
               </div>
             </div>
           </div>
@@ -654,7 +751,7 @@ a:hover{text-decoration:underline;}
               </tr>
             </thead>
             <tbody>
-              <?php foreach($posts as $post): ?>
+              <?php foreach($paginatedPosts as $post): ?>
               <tr>
                 <td>
                   <div class="post-title-cell"><?=htmlspecialchars($post['title'])?></div>
@@ -679,6 +776,26 @@ a:hover{text-decoration:underline;}
             </tbody>
           </table>
         </div>
+        
+        <?php if($totalDashPages > 1): ?>
+        <div class="pagination">
+          <?php if($dashPage > 1): ?>
+            <a href="?dpage=<?=$dashPage - 1?>" class="page-link">← Previous</a>
+          <?php else: ?>
+            <span class="page-link disabled">← Previous</span>
+          <?php endif; ?>
+          
+          <?php for($i = 1; $i <= $totalDashPages; $i++): ?>
+            <a href="?dpage=<?=$i?>" class="page-link <?=$i === $dashPage ? 'active' : ''?>"><?=$i?></a>
+          <?php endfor; ?>
+          
+          <?php if($dashPage < $totalDashPages): ?>
+            <a href="?dpage=<?=$dashPage + 1?>" class="page-link">Next →</a>
+          <?php else: ?>
+            <span class="page-link disabled">Next →</span>
+          <?php endif; ?>
+        </div>
+        <?php endif; ?>
       <?php endif; ?>
     </div>
     
