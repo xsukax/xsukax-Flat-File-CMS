@@ -13,8 +13,7 @@ function get_config(): array {
     'SITE_URL' => 'https://yourdomain.com',
     'SITE_NAME' => 'xsukax Flat-File CMS',
     'SITE_DESC' => 'A modern, elegant flat-file CMS for professional blogs',
-    'POSTS_PER_PAGE' => 12,
-    'ADMIN_FILE' => '../admin.hash'
+    'POSTS_PER_PAGE' => 12
   ];
   if (file_exists(CONFIG_FILE)) {
     $config = @include CONFIG_FILE;
@@ -213,7 +212,20 @@ $page = min($page, $totalPages);
 $offset = ($page - 1) * POSTS_PER_PAGE;
 $posts = array_slice($allPosts, $offset, POSTS_PER_PAGE);
 
-$pageTitle = $is_home ? SITE_NAME : extract_title($content) . ' – xsukax';
+// Build page title based on context
+if (!$is_home) {
+  // Single post page
+  $pageTitle = extract_title($content) . ' - ' . SITE_NAME;
+} elseif ($tag) {
+  // Tag filter page
+  $pageTitle = $tag . ' - ' . SITE_NAME;
+} elseif ($search) {
+  // Search results page
+  $pageTitle = 'Search: ' . $search . ' - ' . SITE_NAME;
+} else {
+  // Home page
+  $pageTitle = SITE_NAME;
+}
 
 $allTags = [];
 foreach (get_all_posts() as $p) {
