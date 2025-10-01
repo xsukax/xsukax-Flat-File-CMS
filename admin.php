@@ -15,7 +15,7 @@ function get_config(): array {
     'SITE_NAME' => 'xsukax Flat-File CMS',
     'SITE_DESC' => 'A modern, elegant flat-file CMS for professional blogs',
     'POSTS_PER_PAGE' => 12,
-    'ADMIN_FILE' => '../admin.hash'
+    'ADMIN_HASH' => password_hash('admin123', PASSWORD_DEFAULT)
   ];
   if (file_exists(CONFIG_FILE)) {
     $config = @include CONFIG_FILE;
@@ -26,12 +26,15 @@ function get_config(): array {
 
 function save_config(array $config): bool {
   $content = "<?php\nreturn " . var_export($config, true) . ";\n";
-  return @file_put_contents(CONFIG_FILE, $content, LOCK_EX) !== false;
+  $result = @file_put_contents(CONFIG_FILE, $content, LOCK_EX);
+  if ($result !== false) {
+    @chmod(CONFIG_FILE, 0600);
+  }
+  return $result !== false;
 }
 
 $config = get_config();
 define('SITE_URL', $config['SITE_URL']);
-define('ADMIN_FILE', __DIR__ . '/' . ltrim($config['ADMIN_FILE'], './'));
 
 function sanitize_slug(string $s): string {
   $s = strtolower($s);
@@ -52,19 +55,20 @@ function safe_post_path(string $slug): ?string {
 function redirect(string $to): never { header('Location: '.$to, true, 303); exit; }
 
 function get_admin_hash(): string {
-  if (!file_exists(ADMIN_FILE)) {
+  $config = get_config();
+  if (!isset($config['ADMIN_HASH']) || empty($config['ADMIN_HASH'])) {
     $hash = password_hash('admin123', PASSWORD_DEFAULT);
-    @file_put_contents(ADMIN_FILE, $hash, LOCK_EX);
-    @chmod(ADMIN_FILE, 0600);
+    $config['ADMIN_HASH'] = $hash;
+    save_config($config);
     return $hash;
   }
-  return trim(@file_get_contents(ADMIN_FILE));
+  return $config['ADMIN_HASH'];
 }
 
 function update_admin_hash(string $password): void {
-  $hash = password_hash($password, PASSWORD_DEFAULT);
-  @file_put_contents(ADMIN_FILE, $hash, LOCK_EX);
-  @chmod(ADMIN_FILE, 0600);
+  $config = get_config();
+  $config['ADMIN_HASH'] = password_hash($password, PASSWORD_DEFAULT);
+  save_config($config);
 }
 
 function parse_post_meta(string $content): array {
@@ -112,14 +116,14 @@ function format_bytes(int $bytes): string {
 
 function get_analytics(): array {
   $files = @glob(POSTS_DIR.'/*.xfc');
-  if (!$files) return ['total'=>0,'today'=>0,'thisWeek'=>0,'thisMonth'=>0,'totalSize'=>0];
+  if (!$files) return ['total'=>0,'today'=>0,'last7Days'=>0,'last30Days'=>0,'totalSize'=>0];
   
   $total = count($files);
   $totalSize = 0;
-  $today = $thisWeek = $thisMonth = 0;
+  $today = $last7Days = $last30Days = 0;
   $dayStart = strtotime('today');
-  $weekStart = strtotime('monday this week');
-  $monthStart = strtotime('first day of this month');
+  $sevenDaysAgo = time() - (7 * 86400);
+  $thirtyDaysAgo = time() - (30 * 86400);
   
   foreach ($files as $file) {
     if (!is_file($file)) continue;
@@ -129,11 +133,11 @@ function get_analytics(): array {
     $time = $meta['created'] ?: @filemtime($file);
     $totalSize += @filesize($file);
     if ($time >= $dayStart) $today++;
-    if ($time >= $weekStart) $thisWeek++;
-    if ($time >= $monthStart) $thisMonth++;
+    if ($time >= $sevenDaysAgo) $last7Days++;
+    if ($time >= $thirtyDaysAgo) $last30Days++;
   }
   
-  return compact('total','today','thisWeek','thisMonth','totalSize');
+  return compact('total','today','last7Days','last30Days','totalSize');
 }
 
 function get_all_existing_tags(): array {
@@ -177,15 +181,13 @@ if ($logged && $_SERVER['REQUEST_METHOD'] === 'POST') {
   $action = (string)($_POST['action'] ?? '');
   
   if ($action === 'save_settings') {
-    $newConfig = [
-      'SITE_URL' => trim((string)($_POST['site_url'] ?? '')),
-      'SITE_NAME' => trim((string)($_POST['site_name'] ?? '')),
-      'SITE_DESC' => trim((string)($_POST['site_desc'] ?? '')),
-      'POSTS_PER_PAGE' => max(1, (int)($_POST['posts_per_page'] ?? 12)),
-      'ADMIN_FILE' => trim((string)($_POST['admin_file'] ?? '../admin.hash'))
-    ];
+    $config = get_config();
+    $config['SITE_URL'] = trim((string)($_POST['site_url'] ?? ''));
+    $config['SITE_NAME'] = trim((string)($_POST['site_name'] ?? ''));
+    $config['SITE_DESC'] = trim((string)($_POST['site_desc'] ?? ''));
+    $config['POSTS_PER_PAGE'] = max(1, (int)($_POST['posts_per_page'] ?? 12));
     
-    if (save_config($newConfig)) {
+    if (save_config($config)) {
       $_SESSION['flash'] = 'Settings saved successfully.';
     } else {
       $_SESSION['flash'] = 'Failed to save settings.';
@@ -501,11 +503,6 @@ a:hover{text-decoration:underline;}
               <label class="form-label">Posts Per Page</label>
               <input type="number" name="posts_per_page" class="form-control" value="<?=htmlspecialchars((string)$config['POSTS_PER_PAGE'])?>" min="1" max="100" required>
             </div>
-            <div class="form-group">
-              <label class="form-label">Admin Hash File Path</label>
-              <input type="text" name="admin_file" class="form-control" value="<?=htmlspecialchars($config['ADMIN_FILE'])?>" required>
-              <p class="form-hint">Relative to the site root directory</p>
-            </div>
             <button class="btn btn-primary" type="submit">Save Settings</button>
           </form>
         </div>
@@ -715,12 +712,12 @@ a:hover{text-decoration:underline;}
         <div class="stat-value"><?=$analytics['today']?></div>
       </div>
       <div class="stat-card">
-        <div class="stat-title">This week</div>
-        <div class="stat-value"><?=$analytics['thisWeek']?></div>
+        <div class="stat-title">Last 7 days</div>
+        <div class="stat-value"><?=$analytics['last7Days']?></div>
       </div>
       <div class="stat-card">
-        <div class="stat-title">This month</div>
-        <div class="stat-value"><?=$analytics['thisMonth']?></div>
+        <div class="stat-title">Last 30 days</div>
+        <div class="stat-value"><?=$analytics['last30Days']?></div>
       </div>
       <div class="stat-card">
         <div class="stat-title">Total size</div>
