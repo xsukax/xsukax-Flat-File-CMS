@@ -1,374 +1,360 @@
 # xsukax Flat-File CMS
 
-A secure, themeable flat-file content management system. No database required.
+A secure, database-free content management system built with PHP. Zero dependencies, maximum simplicity.
 
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![PHP Version](https://img.shields.io/badge/PHP-%3E%3D7.4-8892BF.svg)](https://www.php.net/)
 ![xsukax-Flat-File-CMS](https://raw.githubusercontent.com/xsukax/xsukax-Flat-File-CMS/refs/heads/main/Screenshot.png)
 
 ## Overview
 
-xsukax combines enterprise-grade security with flexible theming in a lightweight PHP-based CMS. Features external password storage and dynamic theme switching without any database dependencies.
+xsukax is a lightweight flat-file CMS that eliminates database overhead while maintaining full CMS functionality. Content is stored in plain `.xfc` files with embedded metadata, making it portable, version-control friendly, and simple to backup.
 
-## Core Features
+**Core Features:**
+- Admin dashboard with analytics and WYSIWYG editor (Quill.js)
+- Full-text search across posts
+- Five professional themes (GitHub, Terminal, IMDb, Bluey, Dark-Grey)
+- Automatic RSS feed and sitemap generation
+- Tag-based organization with random discovery
+- Responsive design across all themes
 
-### 🔒 External Password Storage
+## Security & Privacy
 
-Password hash stored in `../admin.hash` - **outside the web root** - providing multiple layers of security:
+### Security Architecture
 
-- **Inaccessible via HTTP**: Cannot be downloaded through web requests
-- **Path Traversal Protection**: Isolated from application directory
-- **Permission Isolation**: Independent file permissions from web files
-- **Security by Design**: Follows OWASP best practices for credential storage
+**Authentication:**
+- Bcrypt password hashing with `PASSWORD_DEFAULT`
+- Session regeneration on login
+- CSRF protection on all state-changing operations
+- Configurable minimum 6-character password
 
-```mermaid
-graph LR
-    A[Internet] -->|HTTP Request| B[Web Root]
-    B --> C[admin.php]
-    B --> D[index.php]
-    B --> E[Posts/]
-    F[Parent Dir] --> G[admin.hash]
-    G -.->|Not Accessible| A
-    C -->|Reads Hash| G
-    style G fill:#90EE90
-    style F fill:#90EE90
-```
+**Input Protection:**
+- Path traversal prevention via realpath validation
+- Comprehensive slug sanitization
+- HTML escaping on all output
+- Safe file operations with exclusive locks
 
-### 🎨 Multi-Theme Support
+**File Security:**
+- Restrictive permissions (0664 posts, 0600 config)
+- Atomic writes with `LOCK_EX`
+- No dynamic code execution
 
-Dynamic theme switching system with user preferences:
+**Attack Surface:**
+- Zero SQL injection vectors (no database)
+- Minimal external dependencies (CDN only)
+- Error display disabled by default
 
-- **Cookie-Based Selection**: Theme choice persists across sessions
-- **No Page Reload**: Instant theme application
-- **Zero Configuration**: New themes auto-detected
-- **Template Inheritance**: All themes share core functionality
-- **User Control**: Frontend theme selector for visitors
+### Privacy
 
-```mermaid
-flowchart TD
-    A[User Selects Theme] --> B{Cookie Set?}
-    B -->|No| C[Default: GitHub Theme]
-    B -->|Yes| D[Load Saved Theme]
-    C --> E[Render Page]
-    D --> E
-    E --> F[User Sees Themed Content]
-    F --> G[Theme Preference Stored]
-    G -.->|Next Visit| D
-    
-    style A fill:#FFE5B4
-    style D fill:#FFE5B4
-    style G fill:#FFE5B4
-```
+- No analytics or tracking
+- No external API calls (except CDN fonts)
+- Local-only data storage
+- Human-readable file format
+- Minimal cookie usage (session + theme)
 
-## Additional Features
+## Features
 
-- **Zero Dependencies**: No database installation required
-- **WYSIWYG Editor**: Quill-based rich text editing
-- **Tag System**: Flexible content categorization
-- **SEO Optimized**: Auto-generated RSS feeds and sitemaps
-- **CSRF Protection**: Token-based security on all forms
-- **Path Sanitization**: Prevents directory traversal attacks
-- **Mobile Responsive**: All themes mobile-first
-- **Analytics Dashboard**: Content metrics and insights
+### Content Management
+- Rich WYSIWYG editor with formatting, images, code blocks
+- Tag system with bulk operations
+- Creation date preservation
+- Draft preview before publishing
 
-## Requirements
+### User Experience
+- Configurable pagination (default: 12 posts/page)
+- Real-time search with result highlighting
+- Dynamic tag filtering (20 random tags displayed)
+- One-click code copying
+- Instant theme switching
 
-- PHP 7.4 or higher
-- Web server (Apache/Nginx)
-- Write permissions for Posts directory
+### Administration
+- Dashboard analytics: Total, Today, Last 7 Days, Last 30 Days
+- Settings management: URL, name, description, posts per page
+- Post management: Paginated listing with inline actions
+- Password management through UI
+
+### Developer Benefits
+- Portable: Copy files to migrate
+- Version-control friendly: Plain text storage
+- Simple backups: No database dumps
+- Extensible: Easy theme creation
+- Debuggable: Readable file format
 
 ## Installation
 
-1. Clone the repository:
+### Requirements
+
+- PHP 7.4+
+- Apache/Nginx
+- Standard PHP extensions (no extras)
+
+### Setup
+
+**1. Clone Repository**
 ```bash
 git clone https://github.com/xsukax/xsukax-Flat-File-CMS.git
+cd xsukax-Flat-File-CMS
 ```
 
-2. **Configure web root correctly**:
-```
-/var/www/
-├── admin.hash          # SECURE: Outside web root
-└── html/               # WEB ROOT: Server points here
-    ├── admin.php
-    ├── index.php
-    ├── Posts/
-    └── themes/
-        └── github.php
+**2. Configure Server**
+
+**Apache (.htaccess)**
+```apache
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [QSA,L]
 ```
 
-3. Set permissions:
+**Nginx**
+```nginx
+location / {
+    try_files $uri $uri/ /index.php?$query_string;
+}
+```
+
+**3. Set Permissions**
 ```bash
-chmod 755 html/
-chmod 775 html/Posts/
-chmod 600 ../admin.hash
+chmod 755 . Posts/ themes/
+chmod 644 *.php
 ```
 
-4. Update configuration in `index.php`:
+**4. Initial Login**
+- Navigate to `https://yourdomain.com/admin.php`
+- Default password: `admin123`
+- **Change immediately** in Settings → Change Password
+
+**5. Configure Site**
+- Settings → Update Site URL, Name, Description
+- Save configuration
+
+### Directory Structure
+
+```
+xsukax-Flat-File-CMS/
+├── admin.php              # Admin panel
+├── index.php              # Front-end
+├── Posts/                 # Post storage (auto-created)
+├── themes/                # Theme templates
+│   ├── github.php
+│   ├── terminal.php
+│   ├── imdb.php
+│   ├── bluey.php
+│   └── dark-grey.php
+└── ../config.php          # Config + admin hash (auto-created)
+```
+
+## Usage
+
+### System Architecture
+
+```mermaid
+graph TD
+    A[HTTP Request] --> B{Route}
+    B -->|/admin.php| C[Admin Panel]
+    B -->|/| D[Front-end]
+    B -->|/rss.xml| E[RSS Feed]
+    B -->|/sitemap.xml| F[Sitemap]
+    
+    C --> G{Auth?}
+    G -->|No| H[Login]
+    G -->|Yes| I[Dashboard]
+    I --> J[CRUD Operations]
+    J --> K[Posts Directory]
+    
+    D --> L[Theme Engine]
+    L --> M[Render Content]
+    M --> K
+    
+    E --> K
+    F --> K
+    
+    K --> N[.xfc Files]
+```
+
+### Content Workflow
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant A as Admin
+    participant F as Filesystem
+    participant C as Config
+    
+    U->>A: Login
+    A->>C: Verify hash
+    A->>U: Dashboard
+    
+    U->>A: Create post
+    A->>A: Sanitize input
+    A->>F: Write .xfc
+    F->>A: Confirm
+    A->>U: Success
+    
+    U->>A: Update settings
+    A->>C: Save config
+    C->>A: Confirm
+    A->>U: Success
+```
+
+### Creating Posts
+
+1. **Admin Panel**: Login at `/admin.php`
+2. **New Post**: Click "New post"
+3. **Title**: Enter title (auto-generates slug)
+4. **Tags**: Select existing or add new (comma-separated)
+5. **Content**: Use WYSIWYG editor
+6. **Save**: Creates `.xfc` file in `Posts/`
+
+### Managing Settings
+
+**Via Settings Panel:**
+- Site URL: Full URL with protocol
+- Site Name: Appears in headers
+- Site Description: SEO meta description
+- Posts Per Page: 1-100 (default: 12)
+
+**Password Change:**
+- Current password required
+- Minimum 6 characters
+- Confirmation match required
+
+### Post File Format
+
+```html
+<!--META
+tags: php, cms, tutorial
+created: 1696118400
+META-->
+<h1>Post Title</h1>
+<p>Content here...</p>
+```
+
+### Theme Development
+
+Themes access these variables:
 ```php
-const SITE_URL = 'https://yourdomain.com';
-const SITE_NAME = 'Your Site Name';
-const SITE_DESC = 'Your description';
+$is_home       // Boolean: homepage check
+$posts         // Array: paginated posts
+$content       // String: rendered HTML
+$allTags       // Array: unique tags (shuffled)
+$search        // String: search query
+$page          // Integer: current page
+$totalPages    // Integer: pagination
 ```
 
-5. Access `/admin.php` - default password: `admin123`
-6. **Change password immediately** via Settings
-
-## Creating Custom Themes
-
-Themes are PHP templates in the `/themes/` directory. To create a new theme:
-
-1. Create a new file: `themes/mytheme.php`
-2. Use available variables:
-```php
-$pageTitle       // Page title
-$is_home         // Boolean: homepage or single post
-$posts           // Array of posts (homepage)
-$content         // Post content (single post)
-$postMeta        // Post metadata including tags
-$allTags         // All available tags
-$currentTheme    // Active theme name
-$availableThemes // All installed themes
-```
-
-3. Theme structure example:
+**Minimal Theme Template:**
 ```php
 <!DOCTYPE html>
 <html>
 <head>
     <title><?=htmlspecialchars($pageTitle)?></title>
-    <style>
-        /* Your theme styles */
-    </style>
 </head>
 <body>
     <?php if($is_home): ?>
-        <!-- Homepage layout -->
-        <?php foreach($posts as $post): ?>
-            <!-- Post listing -->
-        <?php endforeach; ?>
+        <!-- Post listing -->
     <?php else: ?>
-        <!-- Single post layout -->
-        <?=$content?>
+        <!-- Single post -->
     <?php endif; ?>
-    
-    <!-- Theme selector -->
-    <form method="post">
-        <select name="theme">
-            <?php foreach($availableThemes as $slug => $name): ?>
-                <option value="<?=$slug?>" 
-                    <?=$slug === $currentTheme ? 'selected' : ''?>>
-                    <?=$name?>
-                </option>
-            <?php endforeach; ?>
-        </select>
-        <button name="change_theme">Apply</button>
-    </form>
 </body>
 </html>
 ```
 
-4. Theme automatically appears in selector
-5. No server restart required
+### Search
 
-### Theme Architecture
+**Front-end:** `?s=query`  
+**With filters:** `?s=query&tag=tagname&page=2`  
+Searches titles and full content (case-insensitive)
 
-```mermaid
-graph TD
-    A[index.php] --> B{Load Theme}
-    B --> C[Check Cookie]
-    C -->|Found| D[Load themes/selected.php]
-    C -->|Not Found| E[Load themes/github.php]
-    D --> F[Render with Variables]
-    E --> F
-    F --> G[Output HTML]
-    G --> H[Set Theme Cookie]
-    
-    style D fill:#FFE5B4
-    style E fill:#FFE5B4
-    style H fill:#FFE5B4
+### Backup
+
+**Manual:**
+```bash
+tar -czf backup-$(date +%Y%m%d).tar.gz Posts/ ../config.php
 ```
 
-## Usage
-
-### Admin Panel Workflow
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Admin
-    participant Hash File
-    participant Posts
-    
-    User->>Admin: Access /admin.php
-    Admin->>Hash File: Check ../admin.hash
-    Hash File-->>Admin: Return hash
-    User->>Admin: Enter password
-    Admin->>Hash File: Verify with bcrypt
-    Hash File-->>Admin: Authentication success
-    Admin->>User: Show dashboard
-    User->>Admin: Create/Edit post
-    Admin->>Posts: Save .xfc file
-    Posts-->>Admin: Confirm save
-    Admin->>User: Show success message
+**Automated (Cron):**
+```bash
+0 2 * * * cd /path && tar -czf backups/$(date +\%Y\%m\%d).tar.gz Posts/ ../config.php
 ```
 
-### Content Management
+### Troubleshooting
 
-1. **Create Post**: Title → Auto-generate slug → Add tags → Edit content
-2. **Edit Post**: Select from dashboard → WYSIWYG editor → Save
-3. **Delete Post**: Confirmation modal → Permanent deletion
-4. **Tag Management**: Select existing or create new tags
+| Issue | Solution |
+|-------|----------|
+| 404 on admin | Check file permissions (644) |
+| Can't save posts | Verify Posts/ writable (755) |
+| Config not saving | Parent directory must be writable |
+| Lost password | Delete config.php, resets to `admin123` |
+| Themes not loading | Ensure themes/*.php exist |
 
-### Theme Management
+## Security Hardening
 
-1. **Switch Theme**: Footer selector → Choose theme → Submit
-2. **Cookie Stored**: 365-day expiration
-3. **Instant Apply**: No cache clearing required
+### Production Checklist
+- [ ] Change default password
+- [ ] Set config.php to 0600 permissions
+- [ ] Enable HTTPS
+- [ ] Add security headers (CSP, X-Frame-Options)
+- [ ] Regular PHP updates
+- [ ] Implement rate limiting
+- [ ] Monitor Posts/ directory
 
-## Directory Structure
+### Server Configuration
 
-```
-project-root/
-├── admin.hash              # Password (OUTSIDE web root)
-└── public/                 # Web server document root
-    ├── admin.php           # Admin interface
-    ├── index.php           # Frontend controller
-    ├── Posts/              # Content storage (.xfc files)
-    └── themes/             # Theme templates
-        ├── github.php      # Default theme (GitHub-style)
-        └── custom.php      # Your custom themes
-```
-
-## Security Configuration
-
-### Apache (.htaccess)
-
+**Apache (.htaccess)**
 ```apache
-# Restrict admin access by IP
-<Files "admin.php">
-    Order Deny,Allow
-    Deny from all
-    Allow from 192.168.1.0/24
-</Files>
-
-# Prevent .xfc downloads
-<FilesMatch "\.xfc$">
-    Order Allow,Deny
-    Deny from all
+<FilesMatch "^config\.php$">
+    Require all denied
 </FilesMatch>
 
-# Protect admin.hash (redundant but safe)
-<Files "admin.hash">
-    Order Allow,Deny
-    Deny from all
-</Files>
+Header set X-Content-Type-Options "nosniff"
+Header set X-Frame-Options "SAMEORIGIN"
+Header set X-XSS-Protection "1; mode=block"
 ```
 
-### Nginx
-
+**Nginx**
 ```nginx
-location ~ /admin\.php$ {
-    allow 192.168.1.0/24;
+location ~ ^/config\.php$ {
     deny all;
+    return 404;
 }
 
-location ~* \.xfc$ {
-    deny all;
-}
-
-location ~ /admin\.hash$ {
-    deny all;
-}
+add_header X-Content-Type-Options "nosniff";
+add_header X-Frame-Options "SAMEORIGIN";
+add_header X-XSS-Protection "1; mode=block";
 ```
-
-## Configuration Options
-
-### Core Settings (index.php)
-
-```php
-const POSTS_DIR = __DIR__ . '/Posts';
-const THEMES_DIR = __DIR__ . '/themes';
-const SITE_URL = 'https://yourdomain.com';
-const SITE_NAME = 'Your Site Name';
-const SITE_DESC = 'Site description';
-const POSTS_PER_PAGE = 12;
-```
-
-### Admin Settings (admin.php)
-
-```php
-const POSTS_DIR = __DIR__ . '/Posts';
-const ADMIN_FILE = '../admin.hash';  // Outside web root
-const SITE_URL = 'https://yourdomain.com';
-```
-
-## Production Checklist
-
-- [ ] Verify `admin.hash` is outside web root
-- [ ] Change default password immediately
-- [ ] Enable HTTPS/SSL
-- [ ] Restrict admin.php by IP address
-- [ ] Set file permissions: 600 for admin.hash, 644 for .php files
-- [ ] Test theme switching functionality
-- [ ] Configure automatic backups for Posts directory
-- [ ] Disable PHP error display in production
-- [ ] Test RSS and sitemap generation
-
-## Architecture Overview
-
-```mermaid
-flowchart TB
-    subgraph "Security Layer"
-        A[../admin.hash]
-        B[CSRF Tokens]
-        C[Path Validation]
-    end
-    
-    subgraph "Frontend Layer"
-        D[index.php]
-        E[Theme System]
-        F[Cookie Manager]
-    end
-    
-    subgraph "Content Layer"
-        G[Posts/*.xfc]
-        H[Tag System]
-        I[RSS/Sitemap]
-    end
-    
-    subgraph "Admin Layer"
-        J[admin.php]
-        K[WYSIWYG Editor]
-        L[Dashboard]
-    end
-    
-    A -->|Authenticates| J
-    D --> E
-    E --> F
-    F -->|Loads| E
-    J -->|Manages| G
-    D -->|Reads| G
-    G --> H
-    G --> I
-    
-    style A fill:#90EE90
-    style E fill:#FFE5B4
-    style F fill:#FFE5B4
-```
-
-## License
-
-GNU General Public License v3.0. See [LICENSE](LICENSE) for details.
 
 ## Contributing
 
-Contributions welcome. Please maintain:
-- External password hash storage architecture
-- Theme system compatibility
-- Security features and CSRF protection
+1. Fork repository
+2. Create feature branch
+3. Follow PSR-12 standards
+4. Test on PHP 7.4, 8.0, 8.1, 8.2
+5. Submit pull request
+
+## License
+
+Licensed under **GNU General Public License v3.0**
+
+**Permissions:**
+- Commercial use
+- Modification
+- Distribution
+- Private use
+
+**Conditions:**
+- Disclose source
+- License and copyright notice
+- State changes
+- Same license
+
+See [LICENSE](LICENSE) or https://www.gnu.org/licenses/gpl-3.0.html
 
 ## Support
 
-Issues and feature requests: [GitHub Issues](https://github.com/xsukax/xsukax-Flat-File-CMS/issues)
+- **Issues**: [GitHub Issues](https://github.com/xsukax/xsukax-Flat-File-CMS/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/xsukax/xsukax-Flat-File-CMS/discussions)
 
 ---
 
-**Design Philosophy**: Security and flexibility are not mutually exclusive. This CMS proves both can coexist in a simple, maintainable package.
+**Built for security, simplicity, and speed.**
